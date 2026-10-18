@@ -330,13 +330,24 @@ onAuthStateChanged(auth, async function(fbUser){
     try {
       var userRef = doc(db, 'users', fbUser.uid);
       var userSnap = await getDoc(userRef);
+      
       if (!userSnap.exists()){
-        await signOut(auth);
-        showLoading(false);
-        $('loginError').textContent = 'User profile not found. Contact admin.';
-        return;
+        // إذا لم يجد ملف المستخدم، نتحقق هل قاعدة البيانات فارغة (أول مرة)
+        var branchesSnap = await getDocs(collection(db, 'branches'));
+        if (branchesSnap.empty) {
+          // السماح للأدمن الأول بالدخول وتأسيس قاعدة البيانات
+          state.user = { uid: fbUser.uid, username: 'admin', email: fbUser.email, role: 'admin', branch: '' };
+        } else {
+          // إذا كانت القاعدة بها بيانات ولكن المستخدم غير موجود، نطرده
+          await signOut(auth);
+          showLoading(false);
+          $('loginError').textContent = 'User profile not found. Contact admin.';
+          return;
+        }
+      } else {
+        state.user = { uid: fbUser.uid, ...userSnap.data() };
       }
-      state.user = { uid: fbUser.uid, ...userSnap.data() };
+      
       await initDataIfNeeded();
       startRealtimeListeners();
       showApp();
