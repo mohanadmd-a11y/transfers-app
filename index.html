@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Item Selector &amp; Transfers — Materials Prices List109.xlsx</title>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
@@ -27,6 +27,7 @@ window.initFirebase = function() {
     app: app,
     auth: getAuth(app),
     db: getFirestore(app),
+    // Re-export Firestore helpers
     collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
     addDoc, onSnapshot, query, orderBy, writeBatch, serverTimestamp,
     signInWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -48,99 +49,89 @@ window.initFirebase();
   --dark:#2c3e50;--bg:#f4f6f9;--card:#ffffff;
   --border:#e0e0e0;--text:#333;--muted:#777;
 }
-body{font-family:'Segoe UI',Tahoma,sans-serif;margin:0;background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent;}
+body{font-family:'Segoe UI',Tahoma,sans-serif;margin:0;background:var(--bg);color:var(--text);}
 .screen{min-height:100vh;}
-.login-screen{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2c3e50,#3498db);padding:15px;}
-.login-box{background:white;padding:30px;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.3);width:100%;max-width:400px;}
+.login-screen{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2c3e50,#3498db);}
+.login-box{background:white;padding:40px;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.3);width:100%;max-width:400px;}
 .login-box h1{margin:0 0 5px;text-align:center;color:var(--dark);}
 .login-subtitle{text-align:center;color:var(--muted);margin-bottom:25px;font-size:14px;}
 .login-box .input{margin-bottom:15px;width:100%;}
 .login-hint{text-align:center;font-size:12px;color:var(--muted);margin-top:15px;}
 .error{color:var(--danger);text-align:center;margin-top:10px;font-size:14px;min-height:20px;}
-.app-header{background:var(--dark);color:white;padding:15px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
-.app-header h1{margin:0;font-size:18px;}
+.app-header{background:var(--dark);color:white;padding:15px 25px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.app-header h1{margin:0;font-size:20px;}
 .signature{font-size:11px;opacity:0.7;margin-top:2px;}
-.header-right{display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap;width:100%;justify-content:space-between;}
-.tabs{display:flex;background:white;border-bottom:2px solid var(--border);padding:0 10px;gap:5px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
-.tab-btn{padding:12px 15px;border:none;background:transparent;cursor:pointer;font-size:14px;color:var(--muted);border-bottom:3px solid transparent;transition:0.2s;font-weight:600;flex-shrink:0;}
+.header-right{display:flex;align-items:center;gap:10px;font-size:14px;flex-wrap:wrap;}
+.tabs{display:flex;background:white;border-bottom:2px solid var(--border);padding:0 20px;gap:5px;flex-wrap:wrap;}
+.tab-btn{padding:12px 20px;border:none;background:transparent;cursor:pointer;font-size:14px;color:var(--muted);border-bottom:3px solid transparent;transition:0.2s;font-weight:600;}
 .tab-btn:hover{color:var(--primary);}
 .tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);}
-main{padding:10px;max-width:1400px;margin:0 auto;}
-.container,.panel{background:var(--card);padding:15px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:15px;}
-.panel h3{margin-top:0;color:var(--dark);font-size:16px;}
-.panel h4{color:var(--dark);font-size:15px;}
-.input{padding:10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:white;width:100%;}
+main{padding:20px;max-width:1400px;margin:0 auto;}
+.container,.panel{background:var(--card);padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.06);margin-bottom:20px;}
+.panel h3{margin-top:0;color:var(--dark);}
+.panel h4{color:var(--dark);}
+.input{padding:10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:white;}
 .input:focus{outline:none;border-color:var(--primary);}
-.btn{padding:10px 16px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;background:var(--primary);color:white;transition:0.2s;text-align:center;display:inline-block;}
+.btn{padding:10px 16px;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;background:var(--primary);color:white;transition:0.2s;white-space:nowrap;}
 .btn:hover{background:var(--primary-dark);}
 .btn-success{background:var(--success);} .btn-success:hover{background:var(--success-dark);}
 .btn-danger{background:var(--danger);} .btn-danger:hover{background:var(--danger-dark);}
 .btn-secondary{background:var(--secondary);} .btn-secondary:hover{background:var(--secondary-dark);}
-.btn-small{padding:6px 10px;font-size:12px;}
+.btn-small{padding:5px 10px;font-size:12px;}
 .btn:disabled{opacity:0.5;cursor:not-allowed;}
-.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0;}
-.form-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0;}
-.form-row label{font-weight:600;font-size:13px;width:100%;}
-.form-grid{display:grid;grid-template-columns:1fr;gap:10px;}
-.status{font-weight:bold;margin:8px 0;color:var(--dark);font-size:13px;}
-.table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-.data-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;min-width:600px;}
-.data-table th,.data-table td{border:1px solid var(--border);padding:8px;text-align:center;}
-.data-table th{background:var(--dark);color:white;cursor:pointer;user-select:none;font-size:12px;white-space:nowrap;}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:15px 0;}
+.form-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0;}
+.form-row label{font-weight:600;font-size:14px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.status{font-weight:bold;margin:10px 0;color:var(--dark);}
+.table-wrapper{overflow-x:auto;}
+.data-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;}
+.data-table th,.data-table td{border:1px solid var(--border);padding:8px 10px;text-align:center;}
+.data-table th{background:var(--dark);color:white;cursor:pointer;user-select:none;font-size:12px;}
 .data-table th:hover{background:#1a252f;}
 .data-table tr:nth-child(even){background:#f9fafb;}
 .data-table tr.selected-row{background:#d4edda !important;}
 .data-table tr.cancelled-row{opacity:0.65;}
 .data-table tr.cancelled-row td{background:#f5f5f5 !important;}
-.data-table input[type="checkbox"]{width:20px;height:20px;cursor:pointer;}
-.data-table input[type="number"]{width:60px;padding:4px;font-size:14px;}
+.data-table input[type="checkbox"]{width:18px;height:18px;cursor:pointer;}
+.data-table input[type="number"]{width:80px;padding:5px;}
 .group-col{display:none;}
-.badge{padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block;white-space:nowrap;}
+.badge{padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;display:inline-block;}
 .badge-pending{background:#fff3cd;color:#856404;}
 .badge-received{background:#d4edda;color:#155724;}
 .badge-partial{background:#f8d7da;color:#721c24;}
 .badge-cancelled{background:#e2e3e5;color:#383d41;}
 .diff-zero{color:var(--success-dark);font-weight:600;}
-.diff-nonzero{color:var(--danger);font-weight:700;background:#fff0f0;padding:2px 4px;border-radius:4px;}
-.info-grid{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0;padding:10px;background:#f8f9fa;border-radius:8px;font-size:13px;}
-.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;}
-.stat-card{background:#f8f9fa;padding:12px;border-radius:8px;text-align:center;border-left:4px solid var(--primary);}
-.stat-num{font-size:22px;font-weight:700;color:var(--dark);}
-.stat-label{font-size:11px;color:var(--muted);margin-top:2px;}
+.diff-nonzero{color:var(--danger);font-weight:700;background:#fff0f0;padding:2px 6px;border-radius:4px;}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:15px 0;padding:15px;background:#f8f9fa;border-radius:8px;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin:15px 0;}
+.stat-card{background:#f8f9fa;padding:15px;border-radius:8px;text-align:center;border-left:4px solid var(--primary);}
+.stat-num{font-size:28px;font-weight:700;color:var(--dark);}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px;}
 .stat-pending{border-left-color:#f39c12;} .stat-received{border-left-color:var(--success);} .stat-partial{border-left-color:var(--danger);} .stat-cancelled{border-left-color:#95a5a6;} .stat-qty{border-left-color:#8e44ad;}
-.icon-btn{padding:6px 8px;font-size:14px;line-height:1;min-width:32px;}
-.sort-indicator{font-size:10px;margin-left:2px;opacity:0.85;}
-.audit-btn{padding:4px 8px;font-size:12px;border-radius:20px;cursor:pointer;transition:0.15s;font-weight:600;}
+.icon-btn{padding:5px 8px;font-size:14px;line-height:1;min-width:30px;}
+.sort-indicator{font-size:10px;margin-left:3px;opacity:0.85;}
+.audit-btn{padding:4px 10px;font-size:13px;border-radius:20px;cursor:pointer;transition:0.15s;font-weight:600;}
 .audit-btn.audited{background:#d4edda;color:#155724;border:1px solid #2ecc71;}
 .audit-btn.not-audited{background:#f8f9fa;color:#999;border:1px dashed #ccc;}
-.audit-btn:hover{transform:scale(1.02);}
-.date-filter{display:flex;gap:6px;align-items:center;flex-wrap:wrap;width:100%;}
+.audit-btn:hover{transform:scale(1.06);}
+.date-filter{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .date-filter label{font-size:12px;color:var(--muted);font-weight:600;}
-.date-filter input[type="date"]{padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;flex:1;}
-.loading-screen{position:fixed;inset:0;background:rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;z-index:9999;font-size:16px;color:var(--dark);flex-direction:column;gap:15px;}
+.date-filter input[type="date"]{padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
+.loading-screen{position:fixed;inset:0;background:rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;z-index:9999;font-size:18px;color:var(--dark);flex-direction:column;gap:15px;}
 .spinner{width:40px;height:40px;border:4px solid #e0e0e0;border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
-.toast{position:fixed;bottom:20px;right:20px;left:20px;background:var(--dark);color:white;padding:12px 20px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:10000;text-align:center;animation:slideIn 0.3s;}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--dark);color:white;padding:12px 20px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:10000;max-width:350px;animation:slideIn 0.3s;}
 .toast.error{background:var(--danger);}
 .toast.success{background:var(--success);}
-@keyframes slideIn{from{transform:translateY(100px);}to{transform:translateY(0);}}
-.sync-indicator{position:fixed;top:10px;right:10px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;z-index:9999;display:none;}
+@keyframes slideIn{from{transform:translateX(400px);}to{transform:translateX(0);}}
+.sync-indicator{position:fixed;top:10px;right:10px;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;z-index:9999;}
 .sync-online{background:#d4edda;color:#155724;}
 .sync-offline{background:#f8d7da;color:#721c24;}
-
-/* 📱 تصميم الجوال للجداول */
-@media (max-width: 768px) {
-  .hide-mobile { display: none !important; }
-  .btn { width: 100%; margin-bottom: 5px; display: block; }
-  .toolbar { flex-direction: column; align-items: stretch; }
-  .form-row { flex-direction: column; align-items: stretch; }
-  .data-table { min-width: auto; font-size: 12px; }
-  .data-table th, .data-table td { padding: 5px; }
-  .data-table input[type="number"] { width: 45px; }
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .info-grid { grid-template-columns: 1fr; }
-  .header-right { justify-content: space-between; }
-  .header-right .btn { width: auto; margin: 0; }
+@media (max-width:600px){
+  .app-header{flex-direction:column;align-items:flex-start;}
+  .data-table th,.data-table td{padding:5px;font-size:12px;}
+  .form-grid{grid-template-columns:1fr;}
 }
 </style>
 </head>
@@ -150,7 +141,7 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
   <div class="spinner"></div>
   <div>Loading...</div>
 </div>
-<div id="syncIndicator" class="sync-indicator sync-online">🟢 Online</div>
+<div id="syncIndicator" class="sync-indicator sync-online" style="display:none">🟢 Online</div>
 
 <div id="loginScreen" class="screen login-screen">
   <div class="login-box">
@@ -158,8 +149,9 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
     <div class="login-subtitle">Item Selector &amp; Branch Transfers</div>
     <input id="loginUser" class="input" placeholder="Username" autocomplete="username" maxlength="64">
     <input id="loginPass" class="input" type="password" placeholder="Password" autocomplete="current-password" maxlength="256" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="btn" onclick="doLogin()">Login</button>
+    <button class="btn" style="width:100%" onclick="doLogin()">Login</button>
     <div id="loginError" class="error"></div>
+    <div class="login-hint">Default admin: admin / 1975 (change immediately)</div>
   </div>
 </div>
 
@@ -170,11 +162,9 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
       <div class="signature">BY MOHANAD MOHAMMAD 00963933474728</div>
     </div>
     <div class="header-right">
-      <span id="currentUserLabel" style="font-size:12px;font-weight:bold;"></span>
-      <div>
-        <button class="btn btn-secondary btn-small" onclick="changeMyPassword()">🔑 Password</button>
-        <button class="btn btn-danger btn-small" onclick="doLogout()">Logout</button>
-      </div>
+      <span id="currentUserLabel"></span>
+      <button class="btn btn-secondary btn-small" onclick="changeMyPassword()">🔑 Password</button>
+      <button class="btn btn-danger btn-small" onclick="doLogout()">Logout</button>
     </div>
   </header>
   <nav class="tabs">
@@ -187,11 +177,12 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
     <section id="tab-selector" class="tab-section">
       <div class="container">
         <div class="toolbar">
-          <input type="text" id="selSearch" class="input" placeholder="🔍 Search..." oninput="renderSelectorTable()" maxlength="200">
+          <input type="text" id="selSearch" class="input" style="flex:1;min-width:200px" placeholder="🔍 Search..." oninput="renderSelectorTable()" maxlength="200">
           <button class="btn" onclick="selSelectAll()">✅ Select All</button>
           <button class="btn btn-danger" onclick="selDeselectAll()">❌ Deselect All</button>
           <button class="btn btn-success" onclick="selSave()">💾 Save Selected</button>
           <button class="btn btn-secondary" onclick="selToggleGroups()">👁️ Toggle Group Columns</button>
+          <button class="btn" onclick="selSortBy('__select__')">🔃 Sort by Selection</button>
         </div>
         <div id="selStatus" class="status">Selected: 0</div>
         <div class="table-wrapper">
@@ -221,13 +212,16 @@ const { auth, db, collection, doc, getDoc, getDocs, setDoc, updateDoc,
 
 const EMAIL_DOMAIN = window.EMAIL_DOMAIN;
 
+// Global in-memory state (synced from Firestore in real-time)
 var state = {
   user: null,
+  userDoc: null,
   branches: [],
   catalog: [],
   columns: [],
   transfers: [],
-  users: []
+  users: [],
+  loaded: false
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -279,7 +273,7 @@ function showLoading(show){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// AUTH & SECURITY
+// AUTH
 // ═══════════════════════════════════════════════════════════════════
 function toEmail(username){
   return username.toLowerCase().trim() + '@' + EMAIL_DOMAIN;
@@ -291,10 +285,15 @@ async function doLogin(){
   showLoading(true);
   try {
     await signInWithEmailAndPassword(auth, toEmail(uname), pass);
+    // onAuthStateChanged will handle the rest
   } catch(e){
     showLoading(false);
-    var msg = 'Invalid username or password.';
-    if (e.code === 'auth/too-many-requests') msg = 'Too many attempts. Try again later.';
+    var msg = 'Login failed.';
+    if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential'){
+      msg = 'Invalid username or password.';
+    } else if (e.code === 'auth/too-many-requests'){
+      msg = 'Too many attempts. Try again later.';
+    }
     $('loginError').textContent = msg;
   }
 }
@@ -324,48 +323,20 @@ async function changeMyPassword(){
   }
 }
 
-// دالة تأكيد كلمة المرور للعمليات الحساسة (حذف/إلغاء)
-async function requirePassword() {
-  const user = auth.currentUser;
-  if (!user) return false;
-  const pass = prompt("🔒 Please enter your password to confirm this action:");
-  if (!pass) return false;
-  try {
-    const cred = EmailAuthProvider.credential(user.email, pass);
-    await reauthenticateWithCredential(user, cred);
-    return true;
-  } catch (error) {
-    alert("Incorrect password. Action cancelled.");
-    return false;
-  }
-}
-
+// Auth state listener
 onAuthStateChanged(auth, async function(fbUser){
   if (fbUser){
     showLoading(true);
     try {
       var userRef = doc(db, 'users', fbUser.uid);
       var userSnap = await getDoc(userRef);
-      
       if (!userSnap.exists()){
-        // إذا لم يكن هناك ملف شخصي، تحقق إذا كانت هذه أول مرة (قاعدة البيانات فارغة)
-        var branchesSnap = await getDocs(collection(db, 'branches'));
-        if (branchesSnap.empty) {
-          state.user = { uid: fbUser.uid, username: 'admin', email: fbUser.email, role: 'admin', branch: '' };
-        } else {
-          await signOut(auth);
-          showLoading(false);
-          $('loginError').textContent = 'User profile not found. Contact admin.';
-          return;
-        }
-      } else {
-        state.user = { uid: fbUser.uid, ...userSnap.data() };
-        // إصلاح تلقائي إذا كان المستخدم أدمن وتم حذف ملفه
-        if (state.user.email === 'admin@branchesapp.local') {
-          state.user.role = 'admin'; // ضمان بقاء الصلاحية
-        }
+        await signOut(auth);
+        showLoading(false);
+        $('loginError').textContent = 'User profile not found. Contact admin.';
+        return;
       }
-      
+      state.user = { uid: fbUser.uid, ...userSnap.data() };
       await initDataIfNeeded();
       startRealtimeListeners();
       showApp();
@@ -376,6 +347,7 @@ onAuthStateChanged(auth, async function(fbUser){
     }
   } else {
     state.user = null;
+    state.loaded = false;
     showLogin();
   }
 });
@@ -393,7 +365,8 @@ function showApp(){
   $('loginScreen').style.display = 'none';
   $('appScreen').style.display = 'block';
   $('syncIndicator').style.display = 'block';
-  $('currentUserLabel').textContent = state.user.username + (state.user.branch ? ' • ' + state.user.branch : '') + ' • ' + state.user.role;
+  $('currentUserLabel').textContent =
+    state.user.username + (state.user.branch ? ' • ' + state.user.branch : '') + ' • ' + state.user.role;
   document.querySelectorAll('.tab-btn').forEach(function(b){
     var need = b.dataset.perm;
     b.style.display = (!need || hasPerm(need)) ? '' : 'none';
@@ -418,19 +391,20 @@ function hasPerm(perm){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// INITIAL DATA (seed)
+// INITIAL DATA (seed Firestore from embedded Excel on first run)
 // ═══════════════════════════════════════════════════════════════════
 async function initDataIfNeeded(){
   var branchesSnap = await getDocs(collection(db, 'branches'));
-  if (!branchesSnap.empty) return;
+  if (!branchesSnap.empty) return;  // Already initialized
 
+  // First-time seed
   var defaultBranches = ['11-DHA','12-JUR','13-KAL','14-RAH','18-KHA','19-FUJ',
     '21-COM','22-HIL','23-BUT','24-YAH','25-BAN','27-BAW','28-SHAM'];
 
   showLoading(true);
-  // 1. Create/Ensure admin user profile
+  // 1. Create user profile for current admin
   await setDoc(doc(db, 'users', state.user.uid), {
-    username: 'admin',
+    username: state.user.username,
     email: auth.currentUser.email,
     role: 'admin',
     branch: '',
@@ -444,7 +418,7 @@ async function initDataIfNeeded(){
   });
   await batch.commit();
 
-  // 3. Seed catalog
+  // 3. Seed catalog from embedded Excel
   try {
     var binary = atob(window.EMBEDDED_EXCEL_BASE64);
     var arr = new Uint8Array(binary.length);
@@ -456,11 +430,15 @@ async function initDataIfNeeded(){
 
     await setDoc(doc(db, 'config', 'columns'), { columns: cols });
 
+    // Seed catalog in chunks of 400
     for (var i = 0; i < json.length; i += 400){
       var chunk = json.slice(i, i + 400);
       var b2 = writeBatch(db);
-      chunk.forEach(function(item){
-        b2.set(doc(collection(db, 'catalog')), { ...item, createdAt: serverTimestamp() });
+      chunk.forEach(function(item, idx){
+        b2.set(doc(collection(db, 'catalog')), {
+          ...item,
+          createdAt: serverTimestamp()
+        });
       });
       await b2.commit();
     }
@@ -473,29 +451,40 @@ async function initDataIfNeeded(){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// REALTIME LISTENERS & NAVIGATION
+// REALTIME LISTENERS
 // ═══════════════════════════════════════════════════════════════════
 function startRealtimeListeners(){
+  // Branches
   onSnapshot(collection(db, 'branches'), function(snap){
     state.branches = snap.docs.map(function(d){ return d.id; }).sort();
     refreshCurrentTab();
   });
+
+  // Catalog
   onSnapshot(collection(db, 'catalog'), function(snap){
     state.catalog = snap.docs.map(function(d){ return { _id: d.id, ...d.data() }; });
     refreshCurrentTab();
   });
+
+  // Columns config
   onSnapshot(doc(db, 'config', 'columns'), function(snap){
     state.columns = snap.exists() ? (snap.data().columns || []) : [];
     refreshCurrentTab();
   });
+
+  // Transfers
   onSnapshot(collection(db, 'transfers'), function(snap){
     state.transfers = snap.docs.map(function(d){ return { _id: d.id, ...d.data() }; });
     refreshCurrentTab();
   });
+
+  // Users (for admin panel)
   onSnapshot(collection(db, 'users'), function(snap){
     state.users = snap.docs.map(function(d){ return { _uid: d.id, ...d.data() }; });
     if (currentTab === 'admin') renderAdminPane();
   });
+
+  // Online/offline detection
   window.addEventListener('online', function(){ $('syncIndicator').className = 'sync-indicator sync-online'; $('syncIndicator').textContent = '🟢 Online'; });
   window.addEventListener('offline', function(){ $('syncIndicator').className = 'sync-indicator sync-offline'; $('syncIndicator').textContent = '🔴 Offline'; });
 }
@@ -508,6 +497,9 @@ function refreshCurrentTab(){
   else if (currentTab === 'admin') renderAdminPane();
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
 var currentTab = 'selector';
 function showTab(name){
   if (name === 'dashboard' && !hasPerm('dashboard')) name = 'selector';
@@ -532,7 +524,7 @@ function sortArrow(col, st){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// ITEM SELECTOR
+// ITEM SELECTOR (unchanged from before, uses state.catalog)
 // ═══════════════════════════════════════════════════════════════════
 var selMap = new Map();
 var selGroupVisible = false;
@@ -598,7 +590,6 @@ function renderSelectorTable(){
     var entry = selMap.get(key) || { selected: false, qty: 0 };
     var tr = document.createElement('tr');
     if (entry.selected) tr.classList.add('selected-row');
-    
     var tdCb = document.createElement('td');
     var cb = document.createElement('input');
     cb.type = 'checkbox'; cb.checked = entry.selected;
@@ -609,7 +600,6 @@ function renderSelectorTable(){
       updateSelStatus();
     };
     tdCb.appendChild(cb); tr.appendChild(tdCb);
-    
     var tdQ = document.createElement('td');
     var q = document.createElement('input');
     q.type = 'number'; q.min = 0; q.step = 1; q.value = entry.qty || 0;
@@ -618,7 +608,6 @@ function renderSelectorTable(){
       e.qty = Math.max(0, parseInt(q.value) || 0); selMap.set(key, e);
     };
     tdQ.appendChild(q); tr.appendChild(tdQ);
-    
     state.columns.forEach(function(c){
       var td = document.createElement('td');
       td.textContent = row[c] == null ? '' : row[c];
@@ -649,6 +638,11 @@ function selToggleGroups(){
   if (!groupCols.length){ alert('No group columns.'); return; }
   selGroupVisible = !selGroupVisible; renderSelectorTable();
 }
+function selSortBy(col){
+  if (selSort.col === col) selSort.dir = -selSort.dir;
+  else { selSort.col = col; selSort.dir = 1; }
+  renderSelectorTable();
+}
 function selSave(){
   var keyCol = state.columns[0];
   if (!keyCol){ alert('No catalog.'); return; }
@@ -669,7 +663,7 @@ function selSave(){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// TRANSFERS
+// TRANSFERS (uses state.transfers + Firestore writes)
 // ═══════════════════════════════════════════════════════════════════
 var trView = 'list';
 var trFilter = 'all';
@@ -699,7 +693,7 @@ function auditCellHtml(t, small){
   var a = hasAudited(t);
   var cls = a ? 'audited' : 'not-audited';
   var txt = a ? '✅ Audited' : '🔍 Audit';
-  var extra = small ? ' style="font-size:11px;padding:3px 6px"' : '';
+  var extra = small ? ' style="font-size:11px;padding:3px 8px"' : '';
   return '<button class="audit-btn ' + cls + '"' + extra + ' onclick="toggleAudit(' + attrStr(t._id) + ')">' + txt + '</button>';
 }
 async function toggleAudit(docId){
@@ -711,6 +705,7 @@ async function toggleAudit(docId){
   else audits[state.user.username] = { at: nowISO() };
   try {
     await updateDoc(doc(db, 'transfers', docId), { audits: audits });
+    // onSnapshot will refresh UI
   } catch(e){ toast('Audit failed: ' + e.message, 'error'); }
 }
 
@@ -782,7 +777,7 @@ function renderTransfersList(){
 
   var html = '<div class="panel"><h3>🚚 Transfers</h3>';
   html += '<div class="toolbar">';
-  html += '<input type="text" class="input" placeholder="🔍 Search..." value="' + esc(trSearch) + '" oninput="setTrSearch(this.value)">';
+  html += '<input type="text" class="input" style="flex:1;min-width:180px" placeholder="🔍 Search..." value="' + esc(trSearch) + '" oninput="setTrSearch(this.value)">';
   html += '<button class="btn btn-success" onclick="newTransferStart()">➕ New Transfer</button>';
   if (global){
     html += '<select class="input" onchange="setBranchFilter(this.value)"><option value="">All Branches</option>';
@@ -812,24 +807,22 @@ function renderTransfersList(){
     html += '<th onclick="trSortBy(\'id\')">ID' + sortArrow('id', trSort) + '</th>';
     html += '<th onclick="trSortBy(\'from\')">From' + sortArrow('from', trSort) + '</th>';
     html += '<th onclick="trSortBy(\'to\')">To' + sortArrow('to', trSort) + '</th>';
-    html += '<th onclick="trSortBy(\'createdAt\')" class="hide-mobile">Created' + sortArrow('createdAt', trSort) + '</th>';
-    html += '<th onclick="trSortBy(\'createdBy\')" class="hide-mobile">By' + sortArrow('createdBy', trSort) + '</th>';
-    html += '<th onclick="trSortBy(\'totalQty\')">Qty' + sortArrow('totalQty', trSort) + '</th>';
+    html += '<th onclick="trSortBy(\'createdAt\')">Created' + sortArrow('createdAt', trSort) + '</th>';
+    html += '<th onclick="trSortBy(\'createdBy\')">Created By' + sortArrow('createdBy', trSort) + '</th>';
+    html += '<th onclick="trSortBy(\'totalQty\')">Total Qty' + sortArrow('totalQty', trSort) + '</th>';
     html += '<th onclick="trSortBy(\'status\')">Status' + sortArrow('status', trSort) + '</th>';
-    html += '<th onclick="trSortBy(\'audit\')" class="hide-mobile">Audit' + sortArrow('audit', trSort) + '</th>';
+    html += '<th onclick="trSortBy(\'audit\')">Audit' + sortArrow('audit', trSort) + '</th>';
     html += '<th>Actions</th></tr></thead><tbody>';
     filtered.forEach(function(t){
       var rowTq = (t.items||[]).reduce(function(s,i){ return s + (i.sentQty||0); }, 0);
       var rc = t.status === 'cancelled' ? ' class="cancelled-row"' : '';
       html += '<tr' + rc + '>';
-      html += '<td style="font-weight:bold;">' + esc(t.id) + '</td>';
-      html += '<td>' + esc(t.from) + '</td><td>' + esc(t.to) + '</td>';
-      html += '<td class="hide-mobile">' + esc(fmtDate(t.createdAt)) + '</td>';
-      html += '<td class="hide-mobile">' + esc(t.createdBy||'') + '</td>';
+      html += '<td>' + esc(t.id) + '</td><td>' + esc(t.from) + '</td><td>' + esc(t.to) + '</td>';
+      html += '<td>' + esc(fmtDate(t.createdAt)) + '</td><td>' + esc(t.createdBy||'') + '</td>';
       html += '<td>' + rowTq + '</td><td>' + statusBadge(t.status) + '</td>';
-      html += '<td class="hide-mobile">' + auditCellHtml(t, true) + '</td>';
-      html += '<td style="white-space:nowrap;">';
-      html += '<button class="btn btn-small btn-secondary" onclick="openTransfer(' + attrStr(t._id) + ')">View</button> ';
+      html += '<td>' + auditCellHtml(t, true) + '</td>';
+      html += '<td style="white-space:nowrap">';
+      html += '<button class="btn btn-small" onclick="openTransfer(' + attrStr(t._id) + ')">View</button> ';
       if (t.status === 'pending' && (t.to === state.user.branch || isGlobal())){
         html += '<button class="btn btn-small btn-success" onclick="openTransfer(' + attrStr(t._id) + ', true)">Receive</button> ';
       }
@@ -866,7 +859,7 @@ function renderNewTransfer(){
   var html = '<div class="panel"><div class="toolbar" style="margin-top:0">';
   html += '<button class="btn btn-success" onclick="submitNewTransfer()">✉️ Send Transfer</button>';
   html += '<button class="btn btn-secondary" onclick="cancelNewTransfer()">Cancel</button>';
-  html += '<span id="ntStatus" class="status" style="margin:0 0 0 10px">Selected: 0 | Total Qty: 0</span>';
+  html += '<span id="ntStatus" class="status" style="margin:0 0 0 15px">Selected: 0 | Total Qty: 0</span>';
   html += '</div>';
   html += '<div class="form-row"><label>From:</label>';
   if (isGlobal()){
@@ -882,13 +875,13 @@ function renderNewTransfer(){
     if (b !== ntState.from) html += '<option value="' + esc(b) + '"' + (b === ntState.to ? ' selected' : '') + '>' + esc(b) + '</option>';
   });
   html += '</select>';
-  html += '<span id="ntIdPreview" class="status" style="color:#2980b9;text-align:center;">Next ID: ' + esc(generateTransferId(ntState.from || 'GEN')) + '</span></div>';
-  html += '<div class="form-row"><label>Notes:</label><input id="ntNotes" class="input" value="' + esc(ntState.notes) + '" maxlength="500"></div>';
+  html += '<span id="ntIdPreview" class="status" style="margin:0 0 0 15px;color:#2980b9">Next ID: ' + esc(generateTransferId(ntState.from || 'GEN')) + '</span></div>';
+  html += '<div class="form-row"><label>Notes:</label><input id="ntNotes" class="input" style="flex:1" value="' + esc(ntState.notes) + '" maxlength="500"></div>';
   html += '<div class="toolbar">';
-  html += '<input type="text" id="ntSearch" class="input" placeholder="🔍 Search..." oninput="renderNTTable()" maxlength="200">';
+  html += '<input type="text" id="ntSearch" class="input" style="flex:1;min-width:200px" placeholder="🔍 Search..." oninput="renderNTTable()" maxlength="200">';
   html += '<button class="btn" onclick="ntSelectAll()">✅ Select All</button>';
   html += '<button class="btn btn-danger" onclick="ntDeselectAll()">❌ Deselect All</button>';
-  html += '<button class="btn btn-secondary" onclick="ntToggleGroups()">👁️ Group Cols</button>';
+  html += '<button class="btn btn-secondary" onclick="ntToggleGroups()">👁️ Toggle Group</button>';
   html += '</div>';
   html += '<div class="table-wrapper"><table class="data-table"><thead id="ntThead"></thead><tbody id="ntTbody"></tbody></table></div></div>';
   $('transfersContent').innerHTML = html;
@@ -954,7 +947,6 @@ function renderNTTable(){
     var entry = ntState.items.get(key) || { selected: false, qty: 0 };
     var tr = document.createElement('tr');
     if (entry.selected) tr.classList.add('selected-row');
-    
     var tdCb = document.createElement('td');
     var cb = document.createElement('input');
     cb.type = 'checkbox'; cb.checked = entry.selected;
@@ -968,7 +960,6 @@ function renderNTTable(){
       updateNTStatus();
     };
     tdCb.appendChild(cb); tr.appendChild(tdCb);
-    
     var tdQ = document.createElement('td');
     var q = document.createElement('input');
     q.type = 'number'; q.min = 0; q.step = 1; q.value = entry.qty || 0;
@@ -978,7 +969,6 @@ function renderNTTable(){
       updateNTStatus();
     };
     tdQ.appendChild(q); tr.appendChild(tdQ);
-    
     columns.forEach(function(c){
       var td = document.createElement('td');
       td.textContent = row[c] == null ? '' : row[c];
@@ -1137,7 +1127,7 @@ function renderTransferDetail(){
     var rec;
     if (canReceive){
       var sv = (it.receivedQty != null) ? it.receivedQty : it.sentQty;
-      rec = '<input type="number" min="0" class="qty-input" data-item-idx="' + idx + '" value="' + sv + '">';
+      rec = '<input type="number" min="0" class="qty-input" data-item-idx="' + idx + '" value="' + sv + '" style="width:80px">';
     } else {
       rec = it.receivedQty != null ? '<span class="' + cls + '">' + it.receivedQty + '</span>' : '-';
     }
@@ -1149,7 +1139,7 @@ function renderTransferDetail(){
   html += '</tbody></table></div>';
   if (canReceive){
     html += '<div class="form-row" style="margin-top:15px"><label>Receipt notes:</label>';
-    html += '<input class="input" id="recvNotes" value="' + esc(t.receiptNotes||'') + '" maxlength="500"></div>';
+    html += '<input class="input" id="recvNotes" style="flex:1" value="' + esc(t.receiptNotes||'') + '" maxlength="500"></div>';
     html += '<div class="toolbar"><button class="btn btn-success btn-confirm-receipt" onclick="confirmReceipt(' + attrStr(t._id) + ')">✅ Confirm Receipt</button></div>';
   }
   html += '</div>';
@@ -1189,11 +1179,7 @@ async function confirmReceipt(docId){
 
 async function cancelTransfer(docId){
   if (!(isAdmin() || isAdv())){ alert('Permission denied.'); return; }
-  
-  // إضافة تأكيد بكلمة المرور
-  if (!(await requirePassword())) return;
-
-  var reason = prompt('Enter cancellation reason (optional):', '');
+  var reason = prompt('Mark as CANCELLED? Enter reason (optional):', '');
   if (reason === null) return;
   showLoading(true);
   try {
@@ -1213,10 +1199,6 @@ async function cancelTransfer(docId){
 
 async function deleteTransfer(docId){
   if (!isAdmin()){ alert('Admin only.'); return; }
-  
-  // إضافة تأكيد بكلمة المرور
-  if (!(await requirePassword())) return;
-  
   if (!confirm('Permanently delete this transfer?')) return;
   showLoading(true);
   try {
@@ -1231,7 +1213,7 @@ async function deleteTransfer(docId){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EXPORTS
+// EXPORTS (same as before, uses state.transfers)
 // ═══════════════════════════════════════════════════════════════════
 function exportTransferExcel(docId){
   var t = state.transfers.find(function(x){ return x._id === docId; });
@@ -1307,7 +1289,7 @@ function renderDashboard(){
   }
   var html = '<div class="panel"><h3>📊 Transfers Dashboard</h3>';
   html += '<div class="toolbar">';
-  html += '<input type="text" class="input" placeholder="🔍 Search..." value="' + esc(dashSearch) + '" oninput="setDashSearch(this.value)">';
+  html += '<input type="text" class="input" style="flex:1;min-width:180px" placeholder="🔍 Search..." value="' + esc(dashSearch) + '" oninput="setDashSearch(this.value)">';
   html += '<select class="input" onchange="setDashBranch(this.value)"><option value="">All Branches</option>';
   state.branches.forEach(function(b){ html += '<option value="' + esc(b) + '"' + (b === dashBranchFilter ? ' selected' : '') + '>' + esc(b) + '</option>'; });
   html += '</select>';
@@ -1355,6 +1337,7 @@ function renderDashTable(){
   stats += '<div class="stat-card stat-partial"><div class="stat-num">' + counts.partial + '</div><div class="stat-label">Partial</div></div>';
   stats += '<div class="stat-card stat-cancelled"><div class="stat-num">' + counts.cancelled + '</div><div class="stat-label">Cancelled</div></div>';
   stats += '<div class="stat-card stat-qty"><div class="stat-num">' + tq + '</div><div class="stat-label">Total Qty</div></div>';
+  stats += '<div class="stat-card"><div class="stat-num">' + counts.audited + '</div><div class="stat-label">Audited by Me</div></div>';
   stats += '</div>';
   $('dashStats').innerHTML = stats;
 
@@ -1375,18 +1358,18 @@ function renderDashTable(){
   html += '<th onclick="dashSortBy(\'id\')">ID' + sortArrow('id', dashSort) + '</th>';
   html += '<th onclick="dashSortBy(\'from\')">From' + sortArrow('from', dashSort) + '</th>';
   html += '<th onclick="dashSortBy(\'to\')">To' + sortArrow('to', dashSort) + '</th>';
-  html += '<th onclick="dashSortBy(\'createdAt\')" class="hide-mobile">Created' + sortArrow('createdAt', dashSort) + '</th>';
+  html += '<th onclick="dashSortBy(\'createdAt\')">Created' + sortArrow('createdAt', dashSort) + '</th>';
   html += '<th onclick="dashSortBy(\'status\')">Status' + sortArrow('status', dashSort) + '</th>';
-  html += '<th onclick="dashSortBy(\'totalQty\')">Qty' + sortArrow('totalQty', dashSort) + '</th>';
-  html += '<th onclick="dashSortBy(\'audit\')" class="hide-mobile">Audit' + sortArrow('audit', dashSort) + '</th>';
+  html += '<th onclick="dashSortBy(\'totalQty\')">Total Qty' + sortArrow('totalQty', dashSort) + '</th>';
+  html += '<th onclick="dashSortBy(\'audit\')">Audit' + sortArrow('audit', dashSort) + '</th>';
   html += '<th>Actions</th></tr></thead><tbody>';
   filtered.forEach(function(t){
     var rq = (t.items||[]).reduce(function(s,i){ return s + (i.sentQty||0); }, 0);
     var rc = t.status === 'cancelled' ? ' class="cancelled-row"' : '';
-    html += '<tr' + rc + '><td style="font-weight:bold;">' + esc(t.id) + '</td><td>' + esc(t.from) + '</td><td>' + esc(t.to) + '</td>';
-    html += '<td class="hide-mobile">' + esc(fmtDate(t.createdAt)) + '</td><td>' + statusBadge(t.status) + '</td><td>' + rq + '</td>';
-    html += '<td class="hide-mobile">' + auditCellHtml(t, true) + '</td>';
-    html += '<td><button class="btn btn-small btn-secondary" onclick="openTransferFromDashboard(' + attrStr(t._id) + ')">View</button></td></tr>';
+    html += '<tr' + rc + '><td>' + esc(t.id) + '</td><td>' + esc(t.from) + '</td><td>' + esc(t.to) + '</td>';
+    html += '<td>' + esc(fmtDate(t.createdAt)) + '</td><td>' + statusBadge(t.status) + '</td><td>' + rq + '</td>';
+    html += '<td>' + auditCellHtml(t, true) + '</td>';
+    html += '<td><button class="btn btn-small" onclick="openTransferFromDashboard(' + attrStr(t._id) + ')">View</button></td></tr>';
   });
   html += '</tbody></table></div>';
   $('dashTable').innerHTML = html;
@@ -1419,30 +1402,32 @@ function renderAdminPane(){
 
 function renderAdminUsers(){
   var html = '<div class="container"><h4>👥 Users</h4>';
-  html += '<div class="form-row" style="background:#fff8e1;padding:10px;border-radius:8px;border-left:4px solid #f39c12;font-size:12px;">';
-  html += '<strong>⚠️ To add a new user:</strong><br>1. Go to Firebase Console → Authentication → Add user.<br>2. Email: <code>username@' + EMAIL_DOMAIN + '</code><br>3. Enter UID below to link.<br></div>';
-  html += '<div class="form-row">';
-  html += '<input id="newUserName" class="input" placeholder="Username (not admin)" maxlength="32">';
+  html += '<div class="form-row" style="background:#fff8e1;padding:15px;border-radius:8px;border-left:4px solid #f39c12">';
+  html += '<div style="width:100%"><strong>⚠️ To add a new user:</strong><br>';
+  html += '1. Go to <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a> → Authentication → Users → Add user<br>';
+  html += '2. Enter email as <code>username@' + EMAIL_DOMAIN + '</code> and a password<br>';
+  html += '3. Return here and click below to link the profile:<br></div>';
+  html += '<input id="newUserName" class="input" placeholder="Username (matches Firebase email prefix)" maxlength="32">';
   html += '<select id="newUserRole" class="input"><option value="branch">Branch User</option><option value="adv">ADV</option><option value="admin">Admin</option><option value="viewer">Viewer</option></select>';
   html += '<select id="newUserBranch" class="input"><option value="">-- Branch --</option>';
   state.branches.forEach(function(b){ html += '<option value="' + esc(b) + '">' + esc(b) + '</option>'; });
   html += '</select>';
-  html += '<button class="btn btn-success" onclick="linkNewUser()">🔗 Link User</button>';
+  html += '<button class="btn btn-success" onclick="linkNewUser()">🔗 Link Existing Firebase User</button>';
   html += '</div>';
-  html += '<div class="table-wrapper"><table class="data-table"><thead><tr><th>Username</th><th>Role</th><th>Branch</th><th>Actions</th></tr></thead><tbody>';
+  html += '<table class="data-table"><thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Branch</th><th>Actions</th></tr></thead><tbody>';
   state.users.forEach(function(u){
-    html += '<tr><td>' + esc(u.username) + '</td><td>' + esc(u.role) + '</td><td>' + esc(u.branch||'-') + '</td>';
+    html += '<tr><td>' + esc(u.username) + '</td><td>' + esc(u.email||'') + '</td><td>' + esc(u.role) + '</td><td>' + esc(u.branch||'-') + '</td>';
     html += '<td>';
-    if (u.username && u.username.toLowerCase() === 'admin') {
-      html += '<em style="color:#c0392b;font-weight:bold;">(Protected)</em>';
-    } else if (u.uid !== state.user.uid) {
-      html += '<button class="btn btn-small btn-danger" onclick="deleteUserProfile(' + attrStr(u._uid) + ', ' + attrStr(u.username) + ')">🗑️ Delete</button>';
+    if (u.uid !== state.user.uid){
+      html += '<button class="btn btn-small btn-danger" onclick="deleteUserProfile(' + attrStr(u._uid) + ', ' + attrStr(u.username) + ')">🗑️ Delete Profile</button>';
     } else {
       html += '<em>(you)</em>';
     }
     html += '</td></tr>';
   });
-  html += '</tbody></table></div></div>';
+  html += '</tbody></table>';
+  html += '<p style="font-size:12px;color:#666;margin-top:15px">Note: Deleting a profile here does not delete the Firebase Auth account. To fully remove a user, also delete them in Firebase Console → Authentication.</p>';
+  html += '</div>';
   $('adminPane').innerHTML = html;
 }
 
@@ -1450,16 +1435,13 @@ async function linkNewUser(){
   var uname = sanitizeInput($('newUserName').value.trim(), 32);
   var role = $('newUserRole').value;
   var branch = $('newUserBranch').value;
-  
-  if (uname.toLowerCase() === 'admin') {
-    alert('عذراً، اسم admin محجوز للإدارة الرئيسية.');
-    return;
-  }
-  
   if (!/^[A-Za-z0-9_]{2,32}$/.test(uname)){ alert('Invalid username.'); return; }
   if ((role === 'branch' || role === 'viewer') && !branch){ alert('Select a branch.'); return; }
 
-  var uid = prompt('Paste the UID of the user from Firebase Console → Authentication → Users.');
+  // Find the Firebase Auth UID by email... unfortunately, we can't query Auth from client.
+  // Solution: create a "pending" doc that the user can claim on first login, OR use Firebase Console UID.
+  // Simplest: ask admin to paste the UID from Firebase Console.
+  var uid = prompt('Paste the UID of the user from Firebase Console → Authentication → Users.\n(The UID column is the long string.)');
   if (!uid || uid.length < 10){ alert('Invalid UID.'); return; }
 
   showLoading(true);
@@ -1478,13 +1460,7 @@ async function linkNewUser(){
 }
 
 async function deleteUserProfile(uid, uname){
-  if (uname && uname.toLowerCase() === 'admin') {
-    alert('عذراً، لا يمكن حذف حساب الأدمن الرئيسي لأي سبب كان.');
-    return;
-  }
-  if (!(await requirePassword())) return;
-  if (!confirm('Delete profile for "' + uname + '"?')) return;
-  
+  if (!confirm('Delete profile for "' + uname + '"?\n\n(Firebase Auth account is NOT deleted — do that in Console.)')) return;
   showLoading(true);
   try {
     await deleteDoc(doc(db, 'users', uid));
@@ -1498,13 +1474,13 @@ function renderAdminBranches(){
   var html = '<div class="container"><h4>🏢 Branches</h4>';
   html += '<div class="form-row"><input id="newBranchName" class="input" placeholder="New branch (e.g., 29-XXX)" maxlength="32">';
   html += '<button class="btn btn-success" onclick="adminAddBranch()">➕ Add</button></div>';
-  html += '<div class="table-wrapper"><table class="data-table"><thead><tr><th>Branch</th><th>Users</th><th>Actions</th></tr></thead><tbody>';
+  html += '<table class="data-table"><thead><tr><th>Branch</th><th>Users</th><th>Actions</th></tr></thead><tbody>';
   state.branches.forEach(function(b){
     var uc = state.users.filter(function(u){ return u.branch === b; }).length;
     html += '<tr><td>' + esc(b) + '</td><td>' + uc + '</td>';
     html += '<td><button class="btn btn-small btn-danger" onclick="adminDeleteBranch(' + attrStr(b) + ')">🗑️</button></td></tr>';
   });
-  html += '</tbody></table></div></div>';
+  html += '</tbody></table></div>';
   $('adminPane').innerHTML = html;
 }
 
@@ -1523,9 +1499,6 @@ async function adminAddBranch(){
 async function adminDeleteBranch(branch){
   var uc = state.users.filter(function(u){ return u.branch === branch; }).length;
   if (uc > 0){ alert('Cannot delete: ' + uc + ' user(s) assigned.'); return; }
-  
-  if (!(await requirePassword())) return;
-  
   if (!confirm('Delete branch "' + branch + '"?')) return;
   showLoading(true);
   try {
@@ -1536,9 +1509,9 @@ async function adminDeleteBranch(branch){
 }
 
 function renderAdminCatalog(){
-  var html = '<div class="container"><h4>📚 Catalog (' + state.catalog.length + ')</h4>';
+  var html = '<div class="container"><h4>📚 Catalog (' + state.catalog.length + ' items, ' + state.columns.length + ' columns)</h4>';
   html += '<div class="toolbar">';
-  html += '<input id="catSearch" class="input" placeholder="🔍 Search..." oninput="renderCatalogTable()">';
+  html += '<input id="catSearch" class="input" style="flex:1" placeholder="🔍 Search..." oninput="renderCatalogTable()">';
   html += '<button class="btn btn-danger" onclick="adminDeleteAllCatalog()">🗑️ Delete All</button>';
   html += '<button class="btn btn-secondary" onclick="adminUploadExcel()">📤 Upload Excel</button>';
   html += '<button class="btn btn-success" onclick="adminShowAddItem()">➕ Add Item</button>';
@@ -1584,7 +1557,6 @@ function renderCatalogTable(){
 }
 
 async function adminDeleteAllCatalog(){
-  if (!(await requirePassword())) return;
   if (!confirm('⚠️ Delete ALL ' + state.catalog.length + ' catalog items?')) return;
   showLoading(true);
   try {
@@ -1596,10 +1568,8 @@ async function adminDeleteAllCatalog(){
   } catch(e){ alert('Failed: ' + e.message); }
   showLoading(false);
 }
-
 async function adminDeleteSelectedCatalog(){
   if (!catalogSelected.size){ alert('None selected.'); return; }
-  if (!(await requirePassword())) return;
   if (!confirm('Delete ' + catalogSelected.size + ' item(s)?')) return;
   showLoading(true);
   try {
@@ -1642,6 +1612,7 @@ function adminUploadExcel(){
           alert('Columns mismatch.'); showLoading(false); return;
         }
       }
+      // Upload in batches
       for (var i = 0; i < json.length; i += 400){
         var chunk = json.slice(i, i + 400);
         var batch = writeBatch(db);
@@ -1664,7 +1635,7 @@ function adminShowAddItem(){
   form.style.display = 'block';
   var html = '<h4>➕ Add Item</h4><div class="form-grid">';
   state.columns.forEach(function(c){
-    html += '<div class="form-row"><label>' + esc(c) + '</label><input class="input add-item-field" data-col="' + esc(c) + '" maxlength="500"></div>';
+    html += '<div class="form-row"><label>' + esc(c) + '</label><input class="input add-item-field" data-col="' + esc(c) + '" style="flex:1" maxlength="500"></div>';
   });
   html += '</div><div class="toolbar"><button class="btn btn-success" onclick="adminAddItemSubmit()">Add</button>';
   html += '<button class="btn btn-secondary" onclick="document.getElementById(\'addItemForm\').style.display=\'none\'">Cancel</button></div>';
@@ -1694,7 +1665,8 @@ function renderAdminSettings(){
   html += '<button class="btn btn-danger" onclick="deleteAllTransfers()">🗑️ Delete ALL Transfers (' + state.transfers.length + ')</button>';
   html += '</div>';
   html += '<div style="margin-top:20px;font-size:12px;color:#666;line-height:1.7">';
-  html += '<strong>Security:</strong> This app uses Firebase Auth + Firestore with security rules. All data is stored in the cloud.<br>';
+  html += '<strong>Security:</strong> This app uses Firebase Auth + Firestore with security rules. All data is stored in the cloud and synced in real-time across all devices.<br>';
+  html += '<strong>Backup:</strong> Firestore has automatic backups. You can also export all data from Firebase Console.';
   html += '</div></div>';
   $('adminPane').innerHTML = html;
 }
@@ -1702,9 +1674,6 @@ function renderAdminSettings(){
 async function deleteAllTransfers(){
   if (!isAdmin()){ alert('Admin only.'); return; }
   if (state.transfers.length === 0){ alert('No transfers.'); return; }
-  
-  if (!(await requirePassword())) return;
-  
   if (!confirm('⚠️ Delete ALL ' + state.transfers.length + ' transfers?\n\nThis CANNOT be undone.')) return;
   if (!confirm('Really sure?')) return;
   showLoading(true);
@@ -1722,11 +1691,11 @@ async function deleteAllTransfers(){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EXPORTS TO WINDOW
+// EXPOSE FUNCTIONS TO GLOBAL SCOPE (for onclick handlers)
 // ═══════════════════════════════════════════════════════════════════
 var EXPORTS = [
   'doLogin','doLogout','changeMyPassword','showTab',
-  'renderSelectorTable','selSelectAll','selDeselectAll','selToggleGroups','selSave',
+  'renderSelectorTable','selSelectAll','selDeselectAll','selToggleGroups','selSortBy','selSave',
   'setTrFilter','setBranchFilter','setTrSearch','setTrDateFrom','setTrDateTo','clearTrDate','trSortBy',
   'newTransferStart','ntFromChanged','renderNTTable','ntSelectAll','ntDeselectAll','ntToggleGroups',
   'cancelNewTransfer','submitNewTransfer','openTransfer','backToTransfers','openTransferFromDashboard',
@@ -1741,6 +1710,7 @@ EXPORTS.forEach(function(name){
     window[name] = eval(name);
   }
 });
+// Also export the functions defined with function declarations
 window.doLogin = doLogin;
 window.doLogout = doLogout;
 window.changeMyPassword = changeMyPassword;
@@ -1749,6 +1719,7 @@ window.renderSelectorTable = renderSelectorTable;
 window.selSelectAll = selSelectAll;
 window.selDeselectAll = selDeselectAll;
 window.selToggleGroups = selToggleGroups;
+window.selSortBy = selSortBy;
 window.selSave = selSave;
 window.setTrFilter = setTrFilter;
 window.setBranchFilter = setBranchFilter;
