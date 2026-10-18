@@ -92,6 +92,7 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
 .data-table tr:nth-child(even){background:#f9fafb;}
 .data-table tr.selected-row{background:#d4edda !important;}
 .data-table tr.unmatched-row { background-color: #ffe6e6 !important; }
+.data-table tr.unmatched-row.selected-row { background-color: #ffcccc !important; }
 .data-table tr.cancelled-row{opacity:0.65;}
 .data-table tr.cancelled-row td{background:#f5f5f5 !important;}
 .data-table input[type="checkbox"]{width:20px;height:20px;cursor:pointer;}
@@ -180,8 +181,6 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
   <nav class="tabs">
     <button class="tab-btn" data-tab="selector" data-perm="selector" onclick="showTab('selector')">📋 Item Selector</button>
     <button class="tab-btn" data-tab="transfers" data-perm="transfers" onclick="showTab('transfers')">🚚 Transfers</button>
-    <button class="tab-btn" data-tab="invoices" data-perm="transfers" onclick="showTab('invoices')">🧾 Invoices</button>
-    <button class="tab-btn" data-tab="inventory" data-perm="transfers" onclick="showTab('inventory')">📦 Inventory</button>
     <button class="tab-btn" data-tab="dashboard" data-perm="dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
     <button class="tab-btn" data-tab="admin" data-perm="admin" onclick="showTab('admin')">⚙️ Admin</button>
   </nav>
@@ -206,8 +205,6 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
       </div>
     </section>
     <section id="tab-transfers" class="tab-section" style="display:none"><div id="transfersContent"></div></section>
-    <section id="tab-invoices" class="tab-section" style="display:none"><div id="invoicesContent"></div></section>
-    <section id="tab-inventory" class="tab-section" style="display:none"><div id="inventoryContent"></div></section>
     <section id="tab-dashboard" class="tab-section" style="display:none"><div id="dashboardContent"></div></section>
     <section id="tab-admin" class="tab-section" style="display:none"><div id="adminContent"></div></section>
   </main>
@@ -232,9 +229,7 @@ var state = {
   catalog: [],
   columns: [],
   transfers: [],
-  users: [],
-  invoices: [],    // جديد: الفواتير
-  inventory: []    // جديد: المخزون
+  users: []
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -492,17 +487,6 @@ function startRealtimeListeners(){
     state.users = snap.docs.map(function(d){ return { _uid: d.id, ...d.data() }; });
     if (currentTab === 'admin') renderAdminPane();
   });
-  
-  // الاستماع للفواتير والمخزون
-  onSnapshot(collection(db, 'invoices'), function(snap){
-    state.invoices = snap.docs.map(function(d){ return { _id: d.id, ...d.data() }; });
-    if (currentTab === 'invoices') renderInvoices();
-  });
-  onSnapshot(collection(db, 'inventory'), function(snap){
-    state.inventory = snap.docs.map(function(d){ return { _id: d.id, ...d.data() }; });
-    if (currentTab === 'inventory') renderInventory();
-  });
-
   window.addEventListener('online', function(){ $('syncIndicator').className = 'sync-indicator sync-online'; $('syncIndicator').textContent = '🟢 Online'; });
   window.addEventListener('offline', function(){ $('syncIndicator').className = 'sync-indicator sync-offline'; $('syncIndicator').textContent = '🔴 Offline'; });
 }
@@ -511,8 +495,6 @@ function refreshCurrentTab(){
   if (!state.user) return;
   if (currentTab === 'selector' && document.getElementById('selSearch')) renderSelectorTable();
   else if (currentTab === 'transfers') renderTransfers();
-  else if (currentTab === 'invoices') renderInvoices();
-  else if (currentTab === 'inventory') renderInventory();
   else if (currentTab === 'dashboard' && hasPerm('dashboard')) renderDashboard();
   else if (currentTab === 'admin') renderAdminPane();
 }
@@ -522,9 +504,6 @@ function showTab(name){
   if (name === 'dashboard' && !hasPerm('dashboard')) name = 'selector';
   if (name === 'admin' && !hasPerm('admin')) name = 'selector';
   if (name === 'transfers' && !hasPerm('transfers')) name = 'selector';
-  if (name === 'invoices' && !hasPerm('transfers')) name = 'selector';
-  if (name === 'inventory' && !hasPerm('transfers')) name = 'selector';
-  
   currentTab = name;
   document.querySelectorAll('.tab-section').forEach(function(s){ s.style.display = 'none'; });
   var sec = $('tab-' + name);
@@ -534,8 +513,6 @@ function showTab(name){
   });
   if (name === 'selector') renderSelector();
   else if (name === 'transfers') renderTransfers();
-  else if (name === 'invoices') renderInvoices();
-  else if (name === 'inventory') renderInventory();
   else if (name === 'dashboard') renderDashboard();
   else if (name === 'admin') renderAdmin();
 }
@@ -543,251 +520,6 @@ function showTab(name){
 function sortArrow(col, st){
   if (st.col !== col) return ' <span class="sort-indicator">⇅</span>';
   return st.dir === 1 ? ' <span class="sort-indicator">▲</span>' : ' <span class="sort-indicator">▼</span>';
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// INVOICES (جديد)
-// ═══════════════════════════════════════════════════════════════════
-var invSearch = '';
-var invStatusFilter = '';
-var invSort = { col: 'date', dir: -1 };
-var currentInvoiceId = null;
-
-function setInvSearch(v){ invSearch = v; renderInvoicesTable(); }
-function setInvStatus(v){ invStatusFilter = v; renderInvoicesTable(); }
-function invSortBy(c){
-  if (invSort.col === c) invSort.dir = -invSort.dir;
-  else { invSort.col = c; invSort.dir = 1; }
-  renderInvoicesTable();
-}
-function backToInvoices(){ renderInvoices(); }
-
-function renderInvoices(){
-  if (currentInvoiceId) {
-    renderInvoiceDetail();
-    return;
-  }
-  
-  var html = '<div class="panel"><h3>🧾 Invoices (From Al-Ameen)</h3>';
-  html += '<div class="toolbar">';
-  html += '<input type="text" class="input" placeholder="🔍 Search Invoice No / Customer..." value="' + esc(invSearch) + '" oninput="setInvSearch(this.value)">';
-  html += '<select class="input" onchange="setInvStatus(this.value)"><option value="">All Statuses</option>';
-  ['pending','received','synced_received'].forEach(function(s){
-    html += '<option value="' + s + '"' + (s === invStatusFilter ? ' selected' : '') + '>' + s.charAt(0).toUpperCase() + s.slice(1) + '</option>';
-  });
-  html += '</select></div>';
-  html += '<div id="invoicesTableContainer"></div></div>';
-  $('invoicesContent').innerHTML = html;
-  renderInvoicesTable();
-}
-
-function renderInvoicesTable(){
-  var filtered = state.invoices;
-  
-  if (invStatusFilter) {
-    filtered = filtered.filter(function(i){ return i.status === invStatusFilter; });
-  }
-  if (invSearch) {
-    var s = invSearch.toLowerCase();
-    filtered = filtered.filter(function(i){
-      return String(i.invoiceNumber||'').toLowerCase().indexOf(s) !== -1
-        || String(i.customer||'').toLowerCase().indexOf(s) !== -1
-        || String(i.store||'').toLowerCase().indexOf(s) !== -1
-        || String(i.type||'').toLowerCase().indexOf(s) !== -1;
-    });
-  }
-  
-  filtered = filtered.slice().sort(function(a, b){
-    var col = invSort.col, dir = invSort.dir;
-    if (col === 'total') return (a.total - b.total) * dir;
-    var av = String(a[col] || '').toLowerCase();
-    var bv = String(b[col] || '').toLowerCase();
-    return av.localeCompare(bv) * dir;
-  });
-  
-  if (!filtered.length) {
-    $('invoicesTableContainer').innerHTML = '<p style="text-align:center;padding:20px;color:#999;">No invoices found.</p>';
-    return;
-  }
-  
-  var html = '<div class="table-wrapper"><table class="data-table"><thead><tr>';
-  html += '<th onclick="invSortBy(\'invoiceNumber\')">Inv No' + sortArrow('invoiceNumber', invSort) + '</th>';
-  html += '<th onclick="invSortBy(\'date\')">Date' + sortArrow('date', invSort) + '</th>';
-  html += '<th onclick="invSortBy(\'customer\')">Customer' + sortArrow('customer', invSort) + '</th>';
-  html += '<th onclick="invSortBy(\'type\')" class="hide-mobile">Type' + sortArrow('type', invSort) + '</th>';
-  html += '<th onclick="invSortBy(\'total\')">Total' + sortArrow('total', invSort) + '</th>';
-  html += '<th onclick="invSortBy(\'status\')">Status' + sortArrow('status', invSort) + '</th>';
-  html += '<th>Actions</th></tr></thead><tbody>';
-  
-  filtered.forEach(function(i){
-    var badgeCls = i.status === 'received' || i.status === 'synced_received' ? 'badge-received' : 'badge-pending';
-    var badgeTxt = i.status === 'synced_received' ? 'Synced' : (i.status === 'received' ? 'Received' : 'Pending');
-    
-    html += '<tr>';
-    html += '<td style="font-weight:bold;">' + esc(i.invoiceNumber) + '</td>';
-    html += '<td>' + esc(i.date ? i.date.split(' ')[0] : '') + '</td>';
-    html += '<td>' + esc(i.customer) + '</td>';
-    html += '<td class="hide-mobile">' + esc(i.type) + '</td>';
-    html += '<td>' + Number(i.total).toFixed(2) + '</td>';
-    html += '<td><span class="badge ' + badgeCls + '">' + badgeTxt + '</span></td>';
-    html += '<td><button class="btn btn-small btn-secondary" onclick="openInvoice(' + attrStr(i._id) + ')">View</button></td>';
-    html += '</tr>';
-  });
-  html += '</tbody></table></div>';
-  $('invoicesTableContainer').innerHTML = html;
-}
-
-function openInvoice(docId){
-  currentInvoiceId = docId;
-  renderInvoices();
-}
-
-function renderInvoiceDetail(){
-  var inv = state.invoices.find(function(x){ return x._id === currentInvoiceId; });
-  if (!inv) { currentInvoiceId = null; renderInvoices(); return; }
-  
-  var isReceived = inv.status === 'received' || inv.status === 'synced_received';
-  
-  var html = '<div class="panel"><div class="toolbar">';
-  html += '<button class="btn btn-secondary" onclick="backToInvoices()">← Back</button>';
-  if (!isReceived) {
-    html += '<button class="btn btn-success" onclick="confirmInvoiceReceipt(' + attrStr(inv._id) + ')">✅ Confirm Receipt</button>';
-  }
-  html += '</div>';
-  
-  html += '<h3>Invoice ' + esc(inv.invoiceNumber) + '</h3>';
-  html += '<div class="info-grid">';
-  html += '<div><strong>Customer:</strong> ' + esc(inv.customer) + '</div>';
-  html += '<div><strong>Store:</strong> ' + esc(inv.store) + '</div>';
-  html += '<div><strong>Date:</strong> ' + esc(inv.date) + '</div>';
-  html += '<div><strong>Type:</strong> ' + esc(inv.type) + '</div>';
-  html += '<div><strong>Total:</strong> ' + Number(inv.total).toFixed(2) + '</div>';
-  html += '</div>';
-  
-  if (inv.notes) html += '<p><strong>Notes:</strong> ' + esc(inv.notes) + '</p>';
-  if (inv.receivedBy) html += '<p style="color:var(--success-dark);font-weight:bold;">✅ Received by ' + esc(inv.receivedBy) + ' at ' + esc(fmtDate(inv.receivedAt)) + '</p>';
-  
-  html += '<div class="table-wrapper"><table class="data-table"><thead><tr>';
-  html += '<th>Material Code</th><th>Material Name</th><th>Qty</th><th>Price</th><th>VAT</th><th>Total</th></tr></thead><tbody>';
-  
-  var items = inv.items || [];
-  var totalQty = 0, totalAmount = 0;
-  
-  items.forEach(function(it){
-    var lineTotal = (it.qty * it.price) + (it.vat || 0);
-    totalQty += it.qty;
-    totalAmount += lineTotal;
-    
-    html += '<tr>';
-    html += '<td>' + esc(it.matCode) + '</td>';
-    html += '<td>' + esc(it.matName) + '</td>';
-    html += '<td>' + it.qty + '</td>';
-    html += '<td>' + Number(it.price).toFixed(2) + '</td>';
-    html += '<td>' + Number(it.vat || 0).toFixed(2) + '</td>';
-    html += '<td>' + lineTotal.toFixed(2) + '</td>';
-    html += '</tr>';
-  });
-  
-  html += '</tbody><tfoot>';
-  html += '<tr style="background:#f8f9fa;font-weight:bold;">';
-  html += '<td colspan="2">Total Items: ' + items.length + '</td>';
-  html += '<td>' + totalQty + '</td>';
-  html += '<td colspan="2"></td>';
-  html += '<td>' + totalAmount.toFixed(2) + '</td>';
-  html += '</tr></tfoot></table></div></div>';
-  
-  $('invoicesContent').innerHTML = html;
-}
-
-async function confirmInvoiceReceipt(docId){
-  var inv = state.invoices.find(function(x){ return x._id === docId; });
-  if (!inv) return;
-  
-  if (!confirm("Are you sure you have received the full invoice quantities correctly?")) return;
-  
-  showLoading(true);
-  try {
-    await updateDoc(doc(db, 'invoices', docId), {
-      status: 'received',
-      receivedAt: new Date().toISOString(),
-      receivedBy: state.user.username
-    });
-    toast('Invoice confirmed as received.', 'success');
-    renderInvoiceDetail();
-  } catch(e) {
-    alert('Failed to confirm: ' + e.message);
-  }
-  showLoading(false);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// INVENTORY (جديد)
-// ═══════════════════════════════════════════════════════════════════
-var stkSearch = '';
-var stkSort = { col: 'matCode', dir: 1 };
-
-function setStkSearch(v){ stkSearch = v; renderInventoryTable(); }
-function stkSortBy(c){
-  if (stkSort.col === c) stkSort.dir = -stkSort.dir;
-  else { stkSort.col = c; stkSort.dir = 1; }
-  renderInventoryTable();
-}
-
-function renderInventory(){
-  var html = '<div class="panel"><h3>📦 Inventory Balances (Live)</h3>';
-  html += '<div class="toolbar">';
-  html += '<input type="text" class="input" placeholder="🔍 Search Material Code / Name / Store..." value="' + esc(stkSearch) + '" oninput="setStkSearch(this.value)">';
-  html += '</div>';
-  html += '<div id="inventoryTableContainer"></div></div>';
-  $('inventoryContent').innerHTML = html;
-  renderInventoryTable();
-}
-
-function renderInventoryTable(){
-  var filtered = state.inventory;
-  
-  if (stkSearch) {
-    var s = stkSearch.toLowerCase();
-    filtered = filtered.filter(function(i){
-      return String(i.matCode||'').toLowerCase().indexOf(s) !== -1
-        || String(i.matName||'').toLowerCase().indexOf(s) !== -1
-        || String(i.storeName||'').toLowerCase().indexOf(s) !== -1;
-    });
-  }
-  
-  filtered = filtered.slice().sort(function(a, b){
-    var col = stkSort.col, dir = stkSort.dir;
-    if (col === 'qty') return (a.qty - b.qty) * dir;
-    var av = String(a[col] || '').toLowerCase();
-    var bv = String(b[col] || '').toLowerCase();
-    return av.localeCompare(bv) * dir;
-  });
-  
-  if (!filtered.length) {
-    $('inventoryTableContainer').innerHTML = '<p style="text-align:center;padding:20px;color:#999;">No inventory data found.</p>';
-    return;
-  }
-  
-  var html = '<div class="table-wrapper"><table class="data-table"><thead><tr>';
-  html += '<th onclick="stkSortBy(\'matCode\')">Mat Code' + sortArrow('matCode', stkSort) + '</th>';
-  html += '<th onclick="stkSortBy(\'matName\')">Material Name' + sortArrow('matName', stkSort) + '</th>';
-  html += '<th onclick="stkSortBy(\'storeName\')">Store' + sortArrow('storeName', stkSort) + '</th>';
-  html += '<th onclick="stkSortBy(\'qty\')">Qty' + sortArrow('qty', stkSort) + '</th>';
-  html += '</tr></thead><tbody>';
-  
-  filtered.forEach(function(i){
-    var qtyCls = i.qty < 0 ? 'diff-nonzero' : (i.qty === 0 ? '' : 'diff-zero');
-    if (i.qty <= 0) qtyCls = 'diff-nonzero'; // لون أحمر للأرصدة الصفرية أو السالبة
-    
-    html += '<tr>';
-    html += '<td style="font-weight:bold;">' + esc(i.matCode) + '</td>';
-    html += '<td style="text-align:right;padding-right:15px;">' + esc(i.matName) + '</td>';
-    html += '<td>' + esc(i.storeName) + '</td>';
-    html += '<td class="' + qtyCls + '">' + Number(i.qty).toFixed(2) + '</td>';
-    html += '</tr>';
-  });
-  html += '</tbody></table></div>';
-  $('inventoryTableContainer').innerHTML = html;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1233,11 +965,13 @@ function importMaterialFile(event) {
       }
 
       if (proceed) {
+        // Add matched
         matched.forEach(function(m) {
           var cKey = String(m.data[keyCol]);
           ntState.items.set(cKey, { selected: true, qty: m.qty, isUnmatched: false });
         });
         
+        // Add unmatched
         if (unmatched.length > 0) {
           unmatched.forEach(function(u) {
             var fakeData = {};
@@ -1285,6 +1019,7 @@ function renderNTTable(){
   var groupCols = columns.filter(function(c){ return c.toLowerCase().indexOf('group') !== -1; });
   var search = ($('ntSearch') && $('ntSearch').value || '').trim().toLowerCase();
   
+  // دمج المواد غير المطابقة في أعلى القائمة
   var combinedData = [];
   ntState.items.forEach(function(v, k){
     if (v.isUnmatched) combinedData.push(v.data);
@@ -1326,7 +1061,7 @@ function renderNTTable(){
   var tbody = $('ntTbody');
   var frag = document.createDocumentFragment();
   filtered.forEach(function(row){
-    var key = String(row[keyCol] || '').replace(' ⚠️', '');
+    var key = String(row[keyCol] || '').replace(' ⚠️', ''); // Handle the marked unmatched items
     var entry = ntState.items.get(key) || { selected: false, qty: 0 };
     var tr = document.createElement('tr');
     
@@ -2136,7 +1871,7 @@ async function deleteAllTransfers(){
 // ═══════════════════════════════════════════════════════════════════
 var EXPORTS = [
   'doLogin','doLogout','changeMyPassword','showTab',
-  'renderSelectorTable','selSelectAll','selDeselectAll','selToggleGroups','selSortBy','selSave',
+  'renderSelectorTable','selSelectAll','selDeselectAll','selToggleGroups','selSave',
   'setTrFilter','setBranchFilter','setTrSearch','setTrDateFrom','setTrDateTo','clearTrDate','trSortBy',
   'toggleTrExtra','newTransferStart','ntFromChanged','renderNTTable','ntSelectAll','ntDeselectAll','ntToggleGroups',
   'ntSortBy','cancelNewTransfer','submitNewTransfer','openTransfer','backToTransfers','openTransferFromDashboard',
@@ -2144,9 +1879,7 @@ var EXPORTS = [
   'setDashBranch','setDashStatus','setDashSearch','setDashDateFrom','setDashDateTo','clearDashDate','dashSortBy',
   'toggleDashExtra','setAdminTab','linkNewUser','deleteUserProfile','adminAddBranch','adminDeleteBranch',
   'renderCatalogTable','adminDeleteAllCatalog','adminDeleteSelectedCatalog','adminUploadExcel',
-  'adminShowAddItem','adminAddItemSubmit','deleteAllTransfers','importMaterialFile',
-  'setInvSearch','setInvStatus','invSortBy','openInvoice','backToInvoices','confirmInvoiceReceipt',
-  'setStkSearch','stkSortBy'
+  'adminShowAddItem','adminAddItemSubmit','deleteAllTransfers','importMaterialFile'
 ];
 EXPORTS.forEach(function(name){
   if (typeof window[name] === 'undefined' && typeof eval(name) === 'function'){
@@ -2209,14 +1942,6 @@ window.adminShowAddItem = adminShowAddItem;
 window.adminAddItemSubmit = adminAddItemSubmit;
 window.deleteAllTransfers = deleteAllTransfers;
 window.importMaterialFile = importMaterialFile;
-window.setInvSearch = setInvSearch;
-window.setInvStatus = setInvStatus;
-window.invSortBy = invSortBy;
-window.openInvoice = openInvoice;
-window.backToInvoices = backToInvoices;
-window.confirmInvoiceReceipt = confirmInvoiceReceipt;
-window.setStkSearch = setStkSearch;
-window.stkSortBy = stkSortBy;
 </script>
 </body>
 </html>
