@@ -140,8 +140,6 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
   .info-grid { grid-template-columns: 1fr; }
   .header-right { justify-content: space-between; }
   .header-right .btn { width: auto; margin: 0; }
-  /* إخفاء الأعمدة الإضافية افتراضياً في الجوال */
-  .extra-col { display: none !important; }
 }
 </style>
 </head>
@@ -193,6 +191,7 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
           <button class="btn btn-danger" onclick="selDeselectAll()">❌ Deselect All</button>
           <button class="btn btn-success" onclick="selSave()">💾 Save Selected</button>
           <button class="btn btn-secondary" onclick="selToggleGroups()">👁️ Group Columns</button>
+          <button class="btn" onclick="selSortBy('__select__')">🔃 Sort by Selection</button>
         </div>
         <div id="selStatus" class="status">Selected: 0</div>
         <div class="table-wrapper">
@@ -639,6 +638,11 @@ function selToggleGroups(){
   if (!groupCols.length){ alert('No group columns.'); return; }
   selGroupVisible = !selGroupVisible; renderSelectorTable();
 }
+function selSortBy(col){
+  if (selSort.col === col) selSort.dir = -selSort.dir;
+  else { selSort.col = col; selSort.dir = 1; }
+  renderSelectorTable();
+}
 function selSave(){
   var keyCol = state.columns[0];
   if (!keyCol){ alert('No catalog.'); return; }
@@ -671,8 +675,8 @@ var trSort = { col: 'createdAt', dir: -1 };
 var currentTransferId = null;
 var ntState = { from: '', to: '', notes: '', items: new Map(), sort: { col: null, dir: 1 }, groupVisible: false };
 
-// متغير جديد للتحكم بإظهار الحقول الإضافية في الجدول
-var trShowExtra = false;
+// يظهر افتراضياً على الكمبيوتر ويختفي على الجوال
+var trShowExtra = (window.innerWidth > 768);
 function toggleTrExtra() { trShowExtra = !trShowExtra; renderTransfersList(); }
 
 function statusBadge(s){
@@ -779,6 +783,7 @@ function renderTransfersList(){
   html += '<input type="text" class="input" placeholder="🔍 Search..." value="' + esc(trSearch) + '" oninput="setTrSearch(this.value)">';
   html += '<button class="btn btn-success" onclick="newTransferStart()">➕ New Transfer</button>';
   html += '<button class="btn btn-secondary" onclick="toggleTrExtra()">👁️ ' + (trShowExtra ? 'Hide Extras' : 'Show Extras') + '</button>';
+  html += '<button class="btn btn-secondary" onclick="trSortBy(\'createdAt\')">🔃 Sort by Date</button>';
   if (global){
     html += '<select class="input" onchange="setBranchFilter(this.value)"><option value="">All Branches</option>';
     state.branches.forEach(function(b){ html += '<option value="' + esc(b) + '"' + (b === trBranchFilter ? ' selected' : '') + '>' + esc(b) + '</option>'; });
@@ -887,7 +892,6 @@ function renderNewTransfer(){
   html += '<button class="btn" onclick="ntSelectAll()">✅ Select All</button>';
   html += '<button class="btn btn-danger" onclick="ntDeselectAll()">❌ Deselect All</button>';
   html += '<button class="btn btn-secondary" onclick="ntToggleGroups()">👁️ Group Cols</button>';
-  // إعادة زر الفرز
   html += '<button class="btn" onclick="ntSortBy(\'__select__\')">🔃 Sort by Selection</button>';
   html += '</div>';
   html += '<div class="table-wrapper"><table class="data-table"><thead id="ntThead"></thead><tbody id="ntTbody"></tbody></table></div></div>';
@@ -1287,8 +1291,7 @@ var dashDateFrom = '';
 var dashDateTo = '';
 var dashSort = { col: 'createdAt', dir: -1 };
 
-// متغير جديد للتحكم بإظهار الحقول الإضافية في الداشبورد
-var dashShowExtra = false;
+var dashShowExtra = (window.innerWidth > 768);
 function toggleDashExtra() { dashShowExtra = !dashShowExtra; renderDashTable(); }
 
 function setDashBranch(v){ dashBranchFilter = v; renderDashTable(); }
@@ -1320,6 +1323,7 @@ function renderDashboard(){
   });
   html += '</select>';
   html += '<button class="btn btn-secondary" onclick="toggleDashExtra()">👁️ ' + (dashShowExtra ? 'Hide Extras' : 'Show Extras') + '</button>';
+  html += '<button class="btn btn-secondary" onclick="dashSortBy(\'createdAt\')">🔃 Sort by Date</button>';
   html += '</div>';
   html += '<div class="toolbar"><div class="date-filter">';
   html += '<label>From:</label><input type="date" value="' + esc(dashDateFrom) + '" onchange="setDashDateFrom(this.value)">';
