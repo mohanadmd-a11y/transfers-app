@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Item Selector &amp; Transfers — Materials Prices List109.xlsx</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import {
@@ -84,7 +85,7 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
 .form-grid{display:grid;grid-template-columns:1fr;gap:10px;}
 .status{font-weight:bold;margin:8px 0;color:var(--dark);font-size:13px;}
 .table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-.data-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;min-width:600px;}
+.data-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;min-width:500px;}
 .data-table th,.data-table td{border:1px solid var(--border);padding:8px;text-align:center;}
 .data-table th{background:var(--dark);color:white;cursor:pointer;user-select:none;font-size:12px;white-space:nowrap;}
 .data-table th:hover{background:#1a252f;}
@@ -128,19 +129,19 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
 .sync-online{background:#d4edda;color:#155724;}
 .sync-offline{background:#f8d7da;color:#721c24;}
 
-/* 📱 تصميم الجوال للجداول */
+/* 📱 تصميم الجوال */
 @media (max-width: 768px) {
-  .hide-mobile { display: none !important; }
   .btn { width: 100%; margin-bottom: 5px; display: block; }
   .toolbar { flex-direction: column; align-items: stretch; }
   .form-row { flex-direction: column; align-items: stretch; }
   .data-table { min-width: auto; font-size: 12px; }
   .data-table th, .data-table td { padding: 5px; }
   .data-table input[type="number"] { width: 45px; }
-  .stats-grid { grid-template-columns: 1fr 1fr; }
   .info-grid { grid-template-columns: 1fr; }
   .header-right { justify-content: space-between; }
   .header-right .btn { width: auto; margin: 0; }
+  /* إخفاء الأعمدة الإضافية افتراضياً في الجوال */
+  .extra-col { display: none !important; }
 }
 </style>
 </head>
@@ -191,7 +192,7 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
           <button class="btn" onclick="selSelectAll()">✅ Select All</button>
           <button class="btn btn-danger" onclick="selDeselectAll()">❌ Deselect All</button>
           <button class="btn btn-success" onclick="selSave()">💾 Save Selected</button>
-          <button class="btn btn-secondary" onclick="selToggleGroups()">👁️ Toggle Group Columns</button>
+          <button class="btn btn-secondary" onclick="selToggleGroups()">👁️ Group Columns</button>
         </div>
         <div id="selStatus" class="status">Selected: 0</div>
         <div class="table-wrapper">
@@ -324,7 +325,6 @@ async function changeMyPassword(){
   }
 }
 
-// دالة تأكيد كلمة المرور للعمليات الحساسة (حذف/إلغاء)
 async function requirePassword() {
   const user = auth.currentUser;
   if (!user) return false;
@@ -348,10 +348,11 @@ onAuthStateChanged(auth, async function(fbUser){
       var userSnap = await getDoc(userRef);
       
       if (!userSnap.exists()){
-        // إذا لم يكن هناك ملف شخصي، تحقق إذا كانت هذه أول مرة (قاعدة البيانات فارغة)
-        var branchesSnap = await getDocs(collection(db, 'branches'));
-        if (branchesSnap.empty) {
+        if (fbUser.email === 'admin@' + EMAIL_DOMAIN) {
           state.user = { uid: fbUser.uid, username: 'admin', email: fbUser.email, role: 'admin', branch: '' };
+          await setDoc(doc(db, 'users', fbUser.uid), {
+            username: 'admin', email: fbUser.email, role: 'admin', branch: '', createdAt: new Date().toISOString()
+          }, { merge: true });
         } else {
           await signOut(auth);
           showLoading(false);
@@ -360,10 +361,6 @@ onAuthStateChanged(auth, async function(fbUser){
         }
       } else {
         state.user = { uid: fbUser.uid, ...userSnap.data() };
-        // إصلاح تلقائي إذا كان المستخدم أدمن وتم حذف ملفه
-        if (state.user.email === 'admin@branchesapp.local') {
-          state.user.role = 'admin'; // ضمان بقاء الصلاحية
-        }
       }
       
       await initDataIfNeeded();
@@ -428,23 +425,16 @@ async function initDataIfNeeded(){
     '21-COM','22-HIL','23-BUT','24-YAH','25-BAN','27-BAW','28-SHAM'];
 
   showLoading(true);
-  // 1. Create/Ensure admin user profile
   await setDoc(doc(db, 'users', state.user.uid), {
-    username: 'admin',
-    email: auth.currentUser.email,
-    role: 'admin',
-    branch: '',
-    createdAt: serverTimestamp()
+    username: 'admin', email: auth.currentUser.email, role: 'admin', branch: '', createdAt: serverTimestamp()
   }, { merge: true });
 
-  // 2. Seed branches
   var batch = writeBatch(db);
   defaultBranches.forEach(function(b){
     batch.set(doc(db, 'branches', b), { name: b, createdAt: serverTimestamp() });
   });
   await batch.commit();
 
-  // 3. Seed catalog
   try {
     var binary = atob(window.EMBEDDED_EXCEL_BASE64);
     var arr = new Uint8Array(binary.length);
@@ -681,6 +671,10 @@ var trSort = { col: 'createdAt', dir: -1 };
 var currentTransferId = null;
 var ntState = { from: '', to: '', notes: '', items: new Map(), sort: { col: null, dir: 1 }, groupVisible: false };
 
+// متغير جديد للتحكم بإظهار الحقول الإضافية في الجدول
+var trShowExtra = false;
+function toggleTrExtra() { trShowExtra = !trShowExtra; renderTransfersList(); }
+
 function statusBadge(s){
   var map = {
     pending: ['badge-pending', 'Pending'],
@@ -784,6 +778,7 @@ function renderTransfersList(){
   html += '<div class="toolbar">';
   html += '<input type="text" class="input" placeholder="🔍 Search..." value="' + esc(trSearch) + '" oninput="setTrSearch(this.value)">';
   html += '<button class="btn btn-success" onclick="newTransferStart()">➕ New Transfer</button>';
+  html += '<button class="btn btn-secondary" onclick="toggleTrExtra()">👁️ ' + (trShowExtra ? 'Hide Extras' : 'Show Extras') + '</button>';
   if (global){
     html += '<select class="input" onchange="setBranchFilter(this.value)"><option value="">All Branches</option>';
     state.branches.forEach(function(b){ html += '<option value="' + esc(b) + '"' + (b === trBranchFilter ? ' selected' : '') + '>' + esc(b) + '</option>'; });
@@ -808,26 +803,29 @@ function renderTransfersList(){
     html += '<p style="text-align:center;padding:30px;color:#999;">No transfers.</p>';
   } else {
     var canCancel = isAdmin() || isAdv();
+    var styleExtra = trShowExtra ? '' : ' style="display:none"';
+    
     html += '<div class="table-wrapper"><table class="data-table"><thead><tr>';
     html += '<th onclick="trSortBy(\'id\')">ID' + sortArrow('id', trSort) + '</th>';
     html += '<th onclick="trSortBy(\'from\')">From' + sortArrow('from', trSort) + '</th>';
     html += '<th onclick="trSortBy(\'to\')">To' + sortArrow('to', trSort) + '</th>';
-    html += '<th onclick="trSortBy(\'createdAt\')" class="hide-mobile">Created' + sortArrow('createdAt', trSort) + '</th>';
-    html += '<th onclick="trSortBy(\'createdBy\')" class="hide-mobile">By' + sortArrow('createdBy', trSort) + '</th>';
+    html += '<th onclick="trSortBy(\'createdAt\')" class="extra-col"' + styleExtra + '>Created' + sortArrow('createdAt', trSort) + '</th>';
+    html += '<th onclick="trSortBy(\'createdBy\')" class="extra-col"' + styleExtra + '>By' + sortArrow('createdBy', trSort) + '</th>';
     html += '<th onclick="trSortBy(\'totalQty\')">Qty' + sortArrow('totalQty', trSort) + '</th>';
     html += '<th onclick="trSortBy(\'status\')">Status' + sortArrow('status', trSort) + '</th>';
-    html += '<th onclick="trSortBy(\'audit\')" class="hide-mobile">Audit' + sortArrow('audit', trSort) + '</th>';
+    html += '<th onclick="trSortBy(\'audit\')" class="extra-col"' + styleExtra + '>Audit' + sortArrow('audit', trSort) + '</th>';
     html += '<th>Actions</th></tr></thead><tbody>';
+    
     filtered.forEach(function(t){
       var rowTq = (t.items||[]).reduce(function(s,i){ return s + (i.sentQty||0); }, 0);
       var rc = t.status === 'cancelled' ? ' class="cancelled-row"' : '';
       html += '<tr' + rc + '>';
       html += '<td style="font-weight:bold;">' + esc(t.id) + '</td>';
       html += '<td>' + esc(t.from) + '</td><td>' + esc(t.to) + '</td>';
-      html += '<td class="hide-mobile">' + esc(fmtDate(t.createdAt)) + '</td>';
-      html += '<td class="hide-mobile">' + esc(t.createdBy||'') + '</td>';
+      html += '<td class="extra-col"' + styleExtra + '>' + esc(fmtDate(t.createdAt)) + '</td>';
+      html += '<td class="extra-col"' + styleExtra + '>' + esc(t.createdBy||'') + '</td>';
       html += '<td>' + rowTq + '</td><td>' + statusBadge(t.status) + '</td>';
-      html += '<td class="hide-mobile">' + auditCellHtml(t, true) + '</td>';
+      html += '<td class="extra-col"' + styleExtra + '>' + auditCellHtml(t, true) + '</td>';
       html += '<td style="white-space:nowrap;">';
       html += '<button class="btn btn-small btn-secondary" onclick="openTransfer(' + attrStr(t._id) + ')">View</button> ';
       if (t.status === 'pending' && (t.to === state.user.branch || isGlobal())){
@@ -889,6 +887,8 @@ function renderNewTransfer(){
   html += '<button class="btn" onclick="ntSelectAll()">✅ Select All</button>';
   html += '<button class="btn btn-danger" onclick="ntDeselectAll()">❌ Deselect All</button>';
   html += '<button class="btn btn-secondary" onclick="ntToggleGroups()">👁️ Group Cols</button>';
+  // إعادة زر الفرز
+  html += '<button class="btn" onclick="ntSortBy(\'__select__\')">🔃 Sort by Selection</button>';
   html += '</div>';
   html += '<div class="table-wrapper"><table class="data-table"><thead id="ntThead"></thead><tbody id="ntTbody"></tbody></table></div></div>';
   $('transfersContent').innerHTML = html;
@@ -1015,6 +1015,11 @@ function ntSelectAll(){
 }
 function ntDeselectAll(){ ntState.items.forEach(function(e,k){ e.selected = false; ntState.items.set(k,e); }); renderNTTable(); }
 function ntToggleGroups(){ ntState.groupVisible = !ntState.groupVisible; renderNTTable(); }
+function ntSortBy(col){
+  if (ntState.sort.col === col) ntState.sort.dir = -ntState.sort.dir;
+  else { ntState.sort.col = col; ntState.sort.dir = 1; }
+  renderNTTable();
+}
 function cancelNewTransfer(){
   ntState = { from: '', to: '', notes: '', items: new Map(), sort: { col: null, dir: 1 }, groupVisible: false };
   trView = 'list'; renderTransfers();
@@ -1189,10 +1194,7 @@ async function confirmReceipt(docId){
 
 async function cancelTransfer(docId){
   if (!(isAdmin() || isAdv())){ alert('Permission denied.'); return; }
-  
-  // إضافة تأكيد بكلمة المرور
   if (!(await requirePassword())) return;
-
   var reason = prompt('Enter cancellation reason (optional):', '');
   if (reason === null) return;
   showLoading(true);
@@ -1213,10 +1215,7 @@ async function cancelTransfer(docId){
 
 async function deleteTransfer(docId){
   if (!isAdmin()){ alert('Admin only.'); return; }
-  
-  // إضافة تأكيد بكلمة المرور
   if (!(await requirePassword())) return;
-  
   if (!confirm('Permanently delete this transfer?')) return;
   showLoading(true);
   try {
@@ -1288,6 +1287,10 @@ var dashDateFrom = '';
 var dashDateTo = '';
 var dashSort = { col: 'createdAt', dir: -1 };
 
+// متغير جديد للتحكم بإظهار الحقول الإضافية في الداشبورد
+var dashShowExtra = false;
+function toggleDashExtra() { dashShowExtra = !dashShowExtra; renderDashTable(); }
+
 function setDashBranch(v){ dashBranchFilter = v; renderDashTable(); }
 function setDashStatus(v){ dashStatusFilter = v; renderDashTable(); }
 function setDashSearch(v){ dashSearch = v; renderDashTable(); }
@@ -1315,7 +1318,9 @@ function renderDashboard(){
   ['pending','received','partial','cancelled'].forEach(function(s){
     html += '<option value="' + s + '"' + (s === dashStatusFilter ? ' selected' : '') + '>' + s.charAt(0).toUpperCase() + s.slice(1) + '</option>';
   });
-  html += '</select></div>';
+  html += '</select>';
+  html += '<button class="btn btn-secondary" onclick="toggleDashExtra()">👁️ ' + (dashShowExtra ? 'Hide Extras' : 'Show Extras') + '</button>';
+  html += '</div>';
   html += '<div class="toolbar"><div class="date-filter">';
   html += '<label>From:</label><input type="date" value="' + esc(dashDateFrom) + '" onchange="setDashDateFrom(this.value)">';
   html += '<label>To:</label><input type="date" value="' + esc(dashDateTo) + '" onchange="setDashDateTo(this.value)">';
@@ -1371,21 +1376,25 @@ function renderDashTable(){
     return av2.localeCompare(bv2) * dir;
   });
   if (!filtered.length){ $('dashTable').innerHTML = '<p style="text-align:center;padding:20px;color:#999;">No results.</p>'; return; }
+  
+  var styleExtra = dashShowExtra ? '' : ' style="display:none"';
+  
   var html = '<div class="table-wrapper"><table class="data-table"><thead><tr>';
   html += '<th onclick="dashSortBy(\'id\')">ID' + sortArrow('id', dashSort) + '</th>';
   html += '<th onclick="dashSortBy(\'from\')">From' + sortArrow('from', dashSort) + '</th>';
   html += '<th onclick="dashSortBy(\'to\')">To' + sortArrow('to', dashSort) + '</th>';
-  html += '<th onclick="dashSortBy(\'createdAt\')" class="hide-mobile">Created' + sortArrow('createdAt', dashSort) + '</th>';
+  html += '<th onclick="dashSortBy(\'createdAt\')" class="extra-col"' + styleExtra + '>Created' + sortArrow('createdAt', dashSort) + '</th>';
   html += '<th onclick="dashSortBy(\'status\')">Status' + sortArrow('status', dashSort) + '</th>';
   html += '<th onclick="dashSortBy(\'totalQty\')">Qty' + sortArrow('totalQty', dashSort) + '</th>';
-  html += '<th onclick="dashSortBy(\'audit\')" class="hide-mobile">Audit' + sortArrow('audit', dashSort) + '</th>';
+  html += '<th onclick="dashSortBy(\'audit\')" class="extra-col"' + styleExtra + '>Audit' + sortArrow('audit', dashSort) + '</th>';
   html += '<th>Actions</th></tr></thead><tbody>';
+  
   filtered.forEach(function(t){
     var rq = (t.items||[]).reduce(function(s,i){ return s + (i.sentQty||0); }, 0);
     var rc = t.status === 'cancelled' ? ' class="cancelled-row"' : '';
     html += '<tr' + rc + '><td style="font-weight:bold;">' + esc(t.id) + '</td><td>' + esc(t.from) + '</td><td>' + esc(t.to) + '</td>';
-    html += '<td class="hide-mobile">' + esc(fmtDate(t.createdAt)) + '</td><td>' + statusBadge(t.status) + '</td><td>' + rq + '</td>';
-    html += '<td class="hide-mobile">' + auditCellHtml(t, true) + '</td>';
+    html += '<td class="extra-col"' + styleExtra + '>' + esc(fmtDate(t.createdAt)) + '</td><td>' + statusBadge(t.status) + '</td><td>' + rq + '</td>';
+    html += '<td class="extra-col"' + styleExtra + '>' + auditCellHtml(t, true) + '</td>';
     html += '<td><button class="btn btn-small btn-secondary" onclick="openTransferFromDashboard(' + attrStr(t._id) + ')">View</button></td></tr>';
   });
   html += '</tbody></table></div>';
@@ -1728,11 +1737,11 @@ var EXPORTS = [
   'doLogin','doLogout','changeMyPassword','showTab',
   'renderSelectorTable','selSelectAll','selDeselectAll','selToggleGroups','selSave',
   'setTrFilter','setBranchFilter','setTrSearch','setTrDateFrom','setTrDateTo','clearTrDate','trSortBy',
-  'newTransferStart','ntFromChanged','renderNTTable','ntSelectAll','ntDeselectAll','ntToggleGroups',
-  'cancelNewTransfer','submitNewTransfer','openTransfer','backToTransfers','openTransferFromDashboard',
+  'toggleTrExtra','newTransferStart','ntFromChanged','renderNTTable','ntSelectAll','ntDeselectAll','ntToggleGroups',
+  'ntSortBy','cancelNewTransfer','submitNewTransfer','openTransfer','backToTransfers','openTransferFromDashboard',
   'confirmReceipt','cancelTransfer','deleteTransfer','exportTransferExcel','exportTransferPDF','toggleAudit',
   'setDashBranch','setDashStatus','setDashSearch','setDashDateFrom','setDashDateTo','clearDashDate','dashSortBy',
-  'setAdminTab','linkNewUser','deleteUserProfile','adminAddBranch','adminDeleteBranch',
+  'toggleDashExtra','setAdminTab','linkNewUser','deleteUserProfile','adminAddBranch','adminDeleteBranch',
   'renderCatalogTable','adminDeleteAllCatalog','adminDeleteSelectedCatalog','adminUploadExcel',
   'adminShowAddItem','adminAddItemSubmit','deleteAllTransfers'
 ];
@@ -1757,12 +1766,14 @@ window.setTrDateFrom = setTrDateFrom;
 window.setTrDateTo = setTrDateTo;
 window.clearTrDate = clearTrDate;
 window.trSortBy = trSortBy;
+window.toggleTrExtra = toggleTrExtra;
 window.newTransferStart = newTransferStart;
 window.ntFromChanged = ntFromChanged;
 window.renderNTTable = renderNTTable;
 window.ntSelectAll = ntSelectAll;
 window.ntDeselectAll = ntDeselectAll;
 window.ntToggleGroups = ntToggleGroups;
+window.ntSortBy = ntSortBy;
 window.cancelNewTransfer = cancelNewTransfer;
 window.submitNewTransfer = submitNewTransfer;
 window.openTransfer = openTransfer;
@@ -1781,6 +1792,7 @@ window.setDashDateFrom = setDashDateFrom;
 window.setDashDateTo = setDashDateTo;
 window.clearDashDate = clearDashDate;
 window.dashSortBy = dashSortBy;
+window.toggleDashExtra = toggleDashExtra;
 window.setAdminTab = setAdminTab;
 window.linkNewUser = linkNewUser;
 window.deleteUserProfile = deleteUserProfile;
