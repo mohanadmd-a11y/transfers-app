@@ -91,6 +91,8 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
 .data-table th:hover{background:#1a252f;}
 .data-table tr:nth-child(even){background:#f9fafb;}
 .data-table tr.selected-row{background:#d4edda !important;}
+.data-table tr.unmatched-row { background-color: #ffe6e6 !important; }
+.data-table tr.unmatched-row.selected-row { background-color: #ffcccc !important; }
 .data-table tr.cancelled-row{opacity:0.65;}
 .data-table tr.cancelled-row td{background:#f5f5f5 !important;}
 .data-table input[type="checkbox"]{width:20px;height:20px;cursor:pointer;}
@@ -675,7 +677,6 @@ var trSort = { col: 'createdAt', dir: -1 };
 var currentTransferId = null;
 var ntState = { from: '', to: '', notes: '', items: new Map(), sort: { col: null, dir: 1 }, groupVisible: false };
 
-// يظهر افتراضياً على الكمبيوتر ويختفي على الجوال
 var trShowExtra = (window.innerWidth > 768);
 function toggleTrExtra() { trShowExtra = !trShowExtra; renderTransfersList(); }
 
@@ -869,6 +870,10 @@ function renderNewTransfer(){
   var html = '<div class="panel"><div class="toolbar" style="margin-top:0">';
   html += '<button class="btn btn-success" onclick="submitNewTransfer()">✉️ Send Transfer</button>';
   html += '<button class="btn btn-secondary" onclick="cancelNewTransfer()">Cancel</button>';
+  
+  html += '<input type="file" id="importFileInput" style="display:none" accept=".xlsx,.xls,.csv" onchange="importMaterialFile(event)">';
+  html += '<button class="btn" onclick="document.getElementById(\'importFileInput\').click()">📥 Import File</button>';
+  
   html += '<span id="ntStatus" class="status" style="margin:0 0 0 10px">Selected: 0 | Total Qty: 0</span>';
   html += '</div>';
   html += '<div class="form-row"><label>From:</label>';
@@ -899,6 +904,100 @@ function renderNewTransfer(){
   renderNTTable();
 }
 
+function importMaterialFile(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = new Uint8Array(e.target.result);
+      var wb = XLSX.read(data, {type: 'array'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      
+      var rows = XLSX.utils.sheet_to_json(ws, {header: 1});
+      if (rows.length < 2) { alert('The file is empty or contains no data.'); return; }
+      
+      var importedItems = [];
+      for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        if (!row || row.length < 2) continue;
+        var code = String(row[0]).trim();
+        var qty = parseInt(row[1], 10);
+        if (code && !isNaN(qty) && qty > 0) {
+          importedItems.push({ code: code, qty: qty });
+        }
+      }
+      
+      if (importedItems.length === 0) {
+        alert('No valid items found in the file (ensure it has Code and Qty).');
+        return;
+      }
+
+      var matched = [];
+      var unmatched = [];
+      var keyCol = state.columns[0];
+      
+      importedItems.forEach(function(item) {
+        var catalogItem = state.catalog.find(function(c) {
+          return String(c[keyCol]).trim() === item.code;
+        });
+        
+        if (catalogItem) {
+          matched.push({ data: catalogItem, qty: item.qty });
+        } else {
+          unmatched.push(item);
+        }
+      });
+      
+      var proceed = true;
+
+      if (unmatched.length > 0) {
+        var msg = "Found " + matched.length + " matching items.\n";
+        msg += "Warning: " + unmatched.length + " items were NOT found in the catalog:\n";
+        msg += unmatched.slice(0, 15).map(function(u){ return u.code; }).join(', ');
+        if (unmatched.length > 15) msg += '...';
+        msg += "\n\nDo you want to continue and ADD THESE UNMATCHED ITEMS to the transfer anyway?";
+        
+        if (!confirm(msg)) {
+          proceed = false;
+        }
+      }
+
+      if (proceed) {
+        // Add matched
+        matched.forEach(function(m) {
+          var cKey = String(m.data[keyCol]);
+          ntState.items.set(cKey, { selected: true, qty: m.qty, isUnmatched: false });
+        });
+        
+        // Add unmatched
+        if (unmatched.length > 0) {
+          unmatched.forEach(function(u) {
+            var fakeData = {};
+            state.columns.forEach(function(c){ fakeData[c] = ''; });
+            fakeData[keyCol] = u.code + " ⚠️"; 
+            if (state.columns.length > 1) fakeData[state.columns[1]] = "NOT IN CATALOG";
+            
+            ntState.items.set(u.code, { selected: true, qty: u.qty, isUnmatched: true, data: fakeData });
+          });
+        }
+        
+        if (matched.length > 0 || unmatched.length > 0) {
+           toast("Imported " + (matched.length + unmatched.length) + " items.", "success");
+        }
+      }
+      
+      renderNTTable();
+      
+    } catch (err) {
+      alert('Error reading file: ' + err.message);
+    }
+    event.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function ntFromChanged(){
   var v = $('ntFrom').value;
   ntState.from = v;
@@ -919,7 +1018,15 @@ function renderNTTable(){
   if (!keyCol) return;
   var groupCols = columns.filter(function(c){ return c.toLowerCase().indexOf('group') !== -1; });
   var search = ($('ntSearch') && $('ntSearch').value || '').trim().toLowerCase();
-  var filtered = state.catalog;
+  
+  // دمج المواد غير المطابقة في أعلى القائمة
+  var combinedData = [];
+  ntState.items.forEach(function(v, k){
+    if (v.isUnmatched) combinedData.push(v.data);
+  });
+  combinedData = combinedData.concat(state.catalog);
+
+  var filtered = combinedData;
   if (search){
     filtered = filtered.filter(function(row){
       return columns.some(function(c){ return String(row[c] || '').toLowerCase().indexOf(search) !== -1; });
@@ -954,11 +1061,16 @@ function renderNTTable(){
   var tbody = $('ntTbody');
   var frag = document.createDocumentFragment();
   filtered.forEach(function(row){
-    var key = String(row[keyCol] || '');
+    var key = String(row[keyCol] || '').replace(' ⚠️', ''); // Handle the marked unmatched items
     var entry = ntState.items.get(key) || { selected: false, qty: 0 };
     var tr = document.createElement('tr');
-    if (entry.selected) tr.classList.add('selected-row');
     
+    if (entry.isUnmatched) {
+      tr.classList.add('unmatched-row');
+    } else if (entry.selected) {
+      tr.classList.add('selected-row');
+    }
+
     var tdCb = document.createElement('td');
     var cb = document.createElement('input');
     cb.type = 'checkbox'; cb.checked = entry.selected;
@@ -966,6 +1078,14 @@ function renderNTTable(){
       var e = ntState.items.get(key) || { selected: false, qty: 0 };
       var wasUn = !e.selected;
       e.selected = cb.checked;
+      
+      if (e.isUnmatched && !cb.checked) {
+         ntState.items.delete(key);
+         tr.remove();
+         updateNTStatus();
+         return;
+      }
+      
       if (cb.checked && wasUn && (!e.qty || e.qty === 0)){ e.qty = 1; q.value = 1; }
       ntState.items.set(key, e);
       tr.classList.toggle('selected-row', cb.checked);
@@ -1017,7 +1137,14 @@ function ntSelectAll(){
   });
   renderNTTable();
 }
-function ntDeselectAll(){ ntState.items.forEach(function(e,k){ e.selected = false; ntState.items.set(k,e); }); renderNTTable(); }
+function ntDeselectAll(){ 
+  ntState.items.forEach(function(e,k){ 
+    if(!e.isUnmatched) {
+      e.selected = false; ntState.items.set(k,e); 
+    }
+  }); 
+  renderNTTable(); 
+}
 function ntToggleGroups(){ ntState.groupVisible = !ntState.groupVisible; renderNTTable(); }
 function ntSortBy(col){
   if (ntState.sort.col === col) ntState.sort.dir = -ntState.sort.dir;
@@ -1052,10 +1179,14 @@ async function submitNewTransfer(){
   var items = [];
   ntState.items.forEach(function(v, key){
     if (v.selected && v.qty > 0){
-      var row = state.catalog.find(function(r){ return String(r[state.columns[0]] || '') === key; });
-      if (row){
-        var d = {}; state.columns.forEach(function(c){ d[c] = row[c]; });
-        items.push({ key: key, data: d, sentQty: v.qty, receivedQty: null });
+      if (v.isUnmatched) {
+        items.push({ key: key, data: v.data, sentQty: v.qty, receivedQty: null, isUnmatched: true });
+      } else {
+        var row = state.catalog.find(function(r){ return String(r[state.columns[0]] || '') === key; });
+        if (row){
+          var d = {}; state.columns.forEach(function(c){ d[c] = row[c]; });
+          items.push({ key: key, data: d, sentQty: v.qty, receivedQty: null });
+        }
       }
     }
   });
@@ -1150,7 +1281,8 @@ function renderTransferDetail(){
     } else {
       rec = it.receivedQty != null ? '<span class="' + cls + '">' + it.receivedQty + '</span>' : '-';
     }
-    html += '<tr>';
+    var trCls = it.isUnmatched ? ' class="unmatched-row"' : '';
+    html += '<tr' + trCls + '>';
     disp.forEach(function(c){ html += '<td>' + esc(it.data[c] == null ? '' : it.data[c]) + '</td>'; });
     html += '<td>' + it.sentQty + '</td><td>' + rec + '</td>';
     html += '<td>' + (d === null ? '-' : '<span class="' + cls + '">' + d + '</span>') + '</td></tr>';
@@ -1747,7 +1879,7 @@ var EXPORTS = [
   'setDashBranch','setDashStatus','setDashSearch','setDashDateFrom','setDashDateTo','clearDashDate','dashSortBy',
   'toggleDashExtra','setAdminTab','linkNewUser','deleteUserProfile','adminAddBranch','adminDeleteBranch',
   'renderCatalogTable','adminDeleteAllCatalog','adminDeleteSelectedCatalog','adminUploadExcel',
-  'adminShowAddItem','adminAddItemSubmit','deleteAllTransfers'
+  'adminShowAddItem','adminAddItemSubmit','deleteAllTransfers','importMaterialFile'
 ];
 EXPORTS.forEach(function(name){
   if (typeof window[name] === 'undefined' && typeof eval(name) === 'function'){
@@ -1809,6 +1941,7 @@ window.adminUploadExcel = adminUploadExcel;
 window.adminShowAddItem = adminShowAddItem;
 window.adminAddItemSubmit = adminAddItemSubmit;
 window.deleteAllTransfers = deleteAllTransfers;
+window.importMaterialFile = importMaterialFile;
 </script>
 </body>
 </html>
