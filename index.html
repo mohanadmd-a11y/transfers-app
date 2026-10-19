@@ -92,9 +92,20 @@ main{padding:10px;max-width:1400px;margin:0 auto;}
 .data-table tr:nth-child(even){background:#f9fafb;}
 .data-table tr.selected-row{background:#d4edda !important;}
 .data-table tr.unmatched-row { background-color: #ffe6e6 !important; }
-.data-table tr.unmatched-row.selected-row { background-color: #ffcccc !important; }
+
+/* 🌟 تنسيق تعليم السطر المضغوط */
+.data-table tr { cursor: pointer; }
+.data-table tr.clicked-row { background-color: #e3f2fd !important; border-left: 4px solid #2196f3; }
 .data-table tr.cancelled-row{opacity:0.65;}
 .data-table tr.cancelled-row td{background:#f5f5f5 !important;}
+
+/* 🌟 تنسيق الصور المرفقة */
+.attachment-preview { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.attachment-item { position: relative; }
+.attachment-item img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; transition: transform 0.2s; }
+.attachment-item img:hover { transform: scale(1.05); }
+.attachment-item .remove-btn { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; text-align: center; line-height: 18px; font-size: 12px; border: 2px solid white; }
+
 .data-table input[type="checkbox"]{width:20px;height:20px;cursor:pointer;}
 .data-table input[type="number"]{width:60px;padding:4px;font-size:14px;}
 .group-col{display:none;}
@@ -278,6 +289,12 @@ function toast(msg, type){
 }
 function showLoading(show){
   $('loadingScreen').style.display = show ? 'flex' : 'none';
+}
+
+// 🌟 دالة تعليم السطر
+function handleRowClick(event, rowElement) {
+    if (event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT' || event.target.tagName === 'A' || event.target.tagName === 'IMG') return;
+    rowElement.classList.toggle('clicked-row');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -589,6 +606,7 @@ function renderSelectorTable(){
     var entry = selMap.get(key) || { selected: false, qty: 0 };
     var tr = document.createElement('tr');
     if (entry.selected) tr.classList.add('selected-row');
+    tr.onclick = function(event){ handleRowClick(event, this); }; // تعليم السطر
     
     var tdCb = document.createElement('td');
     var cb = document.createElement('input');
@@ -675,7 +693,7 @@ var trDateFrom = '';
 var trDateTo = '';
 var trSort = { col: 'createdAt', dir: -1 };
 var currentTransferId = null;
-var ntState = { from: '', to: '', notes: '', items: new Map(), sort: { col: null, dir: 1 }, groupVisible: false };
+var ntState = { from: '', to: '', notes: '', items: new Map(), attachments: [], sort: { col: null, dir: 1 }, groupVisible: false };
 
 var trShowExtra = (window.innerWidth > 768);
 function toggleTrExtra() { trShowExtra = !trShowExtra; renderTransfersList(); }
@@ -825,7 +843,7 @@ function renderTransfersList(){
     filtered.forEach(function(t){
       var rowTq = (t.items||[]).reduce(function(s,i){ return s + (i.sentQty||0); }, 0);
       var rc = t.status === 'cancelled' ? ' class="cancelled-row"' : '';
-      html += '<tr' + rc + '>';
+      html += '<tr' + rc + ' onclick="handleRowClick(event, this)">';
       html += '<td style="font-weight:bold;">' + esc(t.id) + '</td>';
       html += '<td>' + esc(t.from) + '</td><td>' + esc(t.to) + '</td>';
       html += '<td class="extra-col"' + styleExtra + '>' + esc(fmtDate(t.createdAt)) + '</td>';
@@ -837,9 +855,14 @@ function renderTransfersList(){
       if (t.status === 'pending' && (t.to === state.user.branch || isGlobal())){
         html += '<button class="btn btn-small btn-success" onclick="openTransfer(' + attrStr(t._id) + ', true)">Receive</button> ';
       }
+      
+      // 🌟 زر الإلغاء أو التراجع
       if (t.status !== 'cancelled' && canCancel){
         html += '<button class="btn btn-small btn-danger icon-btn" onclick="cancelTransfer(' + attrStr(t._id) + ')">🚫</button> ';
+      } else if (t.status === 'cancelled' && canCancel) {
+        html += '<button class="btn btn-small btn-success icon-btn" onclick="uncancelTransfer(' + attrStr(t._id) + ')" title="Uncancel (Restore)">🔄</button> ';
       }
+      
       if (isAdmin()){
         html += '<button class="btn btn-small btn-danger icon-btn" onclick="deleteTransfer(' + attrStr(t._id) + ')">🗑️</button>';
       }
@@ -855,7 +878,7 @@ function newTransferStart(){
   var branches = state.branches;
   if (!branches.length){ alert('No branches defined.'); return; }
   var fromDefault = isGlobal() ? branches[0] : state.user.branch;
-  ntState = { from: fromDefault, to: '', notes: '', items: new Map(), sort: { col: null, dir: 1 }, groupVisible: false };
+  ntState = { from: fromDefault, to: '', notes: '', items: new Map(), attachments: [], sort: { col: null, dir: 1 }, groupVisible: false };
   trView = 'new';
   renderTransfers();
 }
@@ -874,8 +897,16 @@ function renderNewTransfer(){
   html += '<input type="file" id="importFileInput" style="display:none" accept=".xlsx,.xls,.csv" onchange="importMaterialFile(event)">';
   html += '<button class="btn" onclick="document.getElementById(\'importFileInput\').click()">📥 Import File</button>';
   
+  // 🌟 زر إرفاق الصور
+  html += '<input type="file" id="imageInput" style="display:none" accept="image/*" multiple onchange="handleFiles(this.files)">';
+  html += '<button class="btn btn-secondary" onclick="document.getElementById(\'imageInput\').click()">📸 Attach Images</button>';
+  
   html += '<span id="ntStatus" class="status" style="margin:0 0 0 10px">Selected: 0 | Total Qty: 0</span>';
   html += '</div>';
+  
+  // 🌟 حاوية عرض الصور
+  html += '<div id="attachmentContainer" class="attachment-preview"></div>';
+
   html += '<div class="form-row"><label>From:</label>';
   if (isGlobal()){
     html += '<select id="ntFrom" class="input" onchange="ntFromChanged()">';
@@ -901,7 +932,73 @@ function renderNewTransfer(){
   html += '</div>';
   html += '<div class="table-wrapper"><table class="data-table"><thead id="ntThead"></thead><tbody id="ntTbody"></tbody></table></div></div>';
   $('transfersContent').innerHTML = html;
+  renderAttachments(); // عرض الصور إن وجدت
   renderNTTable();
+}
+
+// 🌟 دالة معالجة وضغط الصور
+async function handleFiles(files) {
+  if (!files.length) return;
+  if (ntState.attachments.length + files.length > 3) {
+    alert("You can upload a maximum of 3 images per transfer.");
+    return;
+  }
+  showLoading(true);
+  for (let i = 0; i < files.length; i++) {
+    try {
+      var compressed = await compressImage(files[i], 800, 0.6);
+      ntState.attachments.push(compressed);
+    } catch (e) {
+      console.error("Compression error", e);
+    }
+  }
+  showLoading(false);
+  renderAttachments();
+}
+
+function compressImage(file, maxWidth, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = event => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = error => reject(error);
+    };
+    reader.onerror = error => reject(error);
+  });
+}
+
+function renderAttachments() {
+  var container = $('attachmentContainer');
+  if (!container) return;
+  container.innerHTML = '';
+  ntState.attachments.forEach(function(src, idx){
+    var div = document.createElement('div');
+    div.className = 'attachment-item';
+    div.innerHTML = '<img src="' + src + '" onclick="window.open(this.src, \'_blank\')">' +
+                    '<div class="remove-btn" onclick="removeAttachment(' + idx + ')">×</div>';
+    container.appendChild(div);
+  });
+}
+
+function removeAttachment(idx) {
+  ntState.attachments.splice(idx, 1);
+  renderAttachments();
 }
 
 function importMaterialFile(event) {
@@ -965,13 +1062,11 @@ function importMaterialFile(event) {
       }
 
       if (proceed) {
-        // Add matched
         matched.forEach(function(m) {
           var cKey = String(m.data[keyCol]);
           ntState.items.set(cKey, { selected: true, qty: m.qty, isUnmatched: false });
         });
         
-        // Add unmatched
         if (unmatched.length > 0) {
           unmatched.forEach(function(u) {
             var fakeData = {};
@@ -1019,7 +1114,6 @@ function renderNTTable(){
   var groupCols = columns.filter(function(c){ return c.toLowerCase().indexOf('group') !== -1; });
   var search = ($('ntSearch') && $('ntSearch').value || '').trim().toLowerCase();
   
-  // دمج المواد غير المطابقة في أعلى القائمة
   var combinedData = [];
   ntState.items.forEach(function(v, k){
     if (v.isUnmatched) combinedData.push(v.data);
@@ -1061,7 +1155,7 @@ function renderNTTable(){
   var tbody = $('ntTbody');
   var frag = document.createDocumentFragment();
   filtered.forEach(function(row){
-    var key = String(row[keyCol] || '').replace(' ⚠️', ''); // Handle the marked unmatched items
+    var key = String(row[keyCol] || '').replace(' ⚠️', '');
     var entry = ntState.items.get(key) || { selected: false, qty: 0 };
     var tr = document.createElement('tr');
     
@@ -1070,6 +1164,7 @@ function renderNTTable(){
     } else if (entry.selected) {
       tr.classList.add('selected-row');
     }
+    tr.onclick = function(event){ handleRowClick(event, this); };
 
     var tdCb = document.createElement('td');
     var cb = document.createElement('input');
@@ -1152,7 +1247,7 @@ function ntSortBy(col){
   renderNTTable();
 }
 function cancelNewTransfer(){
-  ntState = { from: '', to: '', notes: '', items: new Map(), sort: { col: null, dir: 1 }, groupVisible: false };
+  ntState = { from: '', to: '', notes: '', items: new Map(), attachments: [], sort: { col: null, dir: 1 }, groupVisible: false };
   trView = 'list'; renderTransfers();
 }
 
@@ -1194,6 +1289,7 @@ async function submitNewTransfer(){
   var newId = generateTransferId(from);
   var t = {
     id: newId, from: from, to: to, items: items, notes: notes,
+    attachments: ntState.attachments, // 🌟 إضافة المرفقات
     status: 'pending',
     createdAt: new Date().toISOString(),
     createdBy: state.user.username,
@@ -1204,7 +1300,7 @@ async function submitNewTransfer(){
   showLoading(true);
   try {
     await addDoc(collection(db, 'transfers'), t);
-    ntState = { from: '', to: '', notes: '', items: new Map(), sort: { col: null, dir: 1 }, groupVisible: false };
+    ntState = { from: '', to: '', notes: '', items: new Map(), attachments: [], sort: { col: null, dir: 1 }, groupVisible: false };
     trView = 'list';
     renderTransfers();
     toast('Transfer ' + newId + ' sent.', 'success');
@@ -1233,6 +1329,7 @@ function renderTransferDetail(){
   if (!t){ trView = 'list'; renderTransfersList(); return; }
   var canReceive = t.status === 'pending' && (t.to === state.user.branch || isGlobal());
   var canCancel = (isAdmin() || isAdv()) && t.status !== 'cancelled';
+  var canUncancel = (isAdmin() || isAdv()) && t.status === 'cancelled'; // 🌟 صلاحية التراجع
   var canDelete = isAdmin();
   var disp = state.columns.slice(0, Math.min(state.columns.length, 4));
 
@@ -1241,8 +1338,11 @@ function renderTransferDetail(){
   html += '<button class="btn" onclick="exportTransferExcel(' + attrStr(t._id) + ')">📊 Excel</button>';
   html += '<button class="btn" onclick="exportTransferPDF(' + attrStr(t._id) + ')">📄 PDF</button>';
   html += auditCellHtml(t);
+  
   if (canCancel) html += '<button class="btn btn-danger" onclick="cancelTransfer(' + attrStr(t._id) + ')">🚫 Cancel</button>';
+  if (canUncancel) html += '<button class="btn btn-success" onclick="uncancelTransfer(' + attrStr(t._id) + ')">🔄 Uncancel (Restore)</button>'; // 🌟
   if (canDelete) html += '<button class="btn btn-danger" onclick="deleteTransfer(' + attrStr(t._id) + ')">🗑️ Delete</button>';
+  
   html += '</div>';
   html += '<h3>Transfer ' + esc(t.id) + '</h3>';
   html += '<div class="info-grid">';
@@ -1256,6 +1356,18 @@ function renderTransferDetail(){
   if (t.notes) html += '<p><strong>Notes:</strong> ' + esc(t.notes) + '</p>';
   if (t.receiptNotes) html += '<p><strong>Receipt notes:</strong> ' + esc(t.receiptNotes) + '</p>';
   if (t.cancelReason) html += '<p><strong>Cancel reason:</strong> ' + esc(t.cancelReason) + '</p>';
+  
+  // 🌟 عرض المرفقات
+  if (t.attachments && t.attachments.length > 0) {
+      html += '<div style="margin: 15px 0;">';
+      html += '<strong>Attached Images:</strong>';
+      html += '<div class="attachment-preview">';
+      t.attachments.forEach(function(src, idx) {
+          html += '<div class="attachment-item"><img src="' + src + '" onclick="window.open(this.src, \'_blank\')" title="Click to view full size"></div>';
+      });
+      html += '</div></div>';
+  }
+
   if (isAdmin() && t.audits){
     var ks = Object.keys(t.audits);
     if (ks.length) html += '<p><strong>Audited by:</strong> ' + ks.map(function(n){ return esc(n) + ' <small>(' + esc(fmtDate(t.audits[n].at)) + ')</small>'; }).join(', ') + '</p>';
@@ -1282,7 +1394,10 @@ function renderTransferDetail(){
       rec = it.receivedQty != null ? '<span class="' + cls + '">' + it.receivedQty + '</span>' : '-';
     }
     var trCls = it.isUnmatched ? ' class="unmatched-row"' : '';
-    html += '<tr' + trCls + '>';
+    
+    // 🌟 تعليم السطر
+    html += '<tr' + trCls + ' onclick="handleRowClick(event, this)">';
+    
     disp.forEach(function(c){ html += '<td>' + esc(it.data[c] == null ? '' : it.data[c]) + '</td>'; });
     html += '<td>' + it.sentQty + '</td><td>' + rec + '</td>';
     html += '<td>' + (d === null ? '-' : '<span class="' + cls + '">' + d + '</span>') + '</td></tr>';
@@ -1342,6 +1457,27 @@ async function cancelTransfer(docId){
       cancelReason: sanitizeInput(reason, 500)
     });
     toast('Transfer cancelled.', 'success');
+    renderTransfers();
+  } catch(e){
+    alert('Failed: ' + e.message);
+  }
+  showLoading(false);
+}
+
+// 🌟 دالة التراجع عن الإلغاء
+async function uncancelTransfer(docId){
+  if (!(isAdmin() || isAdv())){ alert('Permission denied.'); return; }
+  if (!(await requirePassword())) return;
+  
+  showLoading(true);
+  try {
+    await updateDoc(doc(db, 'transfers', docId), {
+      status: 'pending',
+      cancelledAt: null,
+      cancelledBy: null,
+      cancelReason: null
+    });
+    toast('Transfer restored to Pending.', 'success');
     renderTransfers();
   } catch(e){
     alert('Failed: ' + e.message);
@@ -1528,7 +1664,8 @@ function renderDashTable(){
   filtered.forEach(function(t){
     var rq = (t.items||[]).reduce(function(s,i){ return s + (i.sentQty||0); }, 0);
     var rc = t.status === 'cancelled' ? ' class="cancelled-row"' : '';
-    html += '<tr' + rc + '><td style="font-weight:bold;">' + esc(t.id) + '</td><td>' + esc(t.from) + '</td><td>' + esc(t.to) + '</td>';
+    html += '<tr' + rc + ' onclick="handleRowClick(event, this)">';
+    html += '<td style="font-weight:bold;">' + esc(t.id) + '</td><td>' + esc(t.from) + '</td><td>' + esc(t.to) + '</td>';
     html += '<td class="extra-col"' + styleExtra + '>' + esc(fmtDate(t.createdAt)) + '</td><td>' + statusBadge(t.status) + '</td><td>' + rq + '</td>';
     html += '<td class="extra-col"' + styleExtra + '>' + auditCellHtml(t, true) + '</td>';
     html += '<td><button class="btn btn-small btn-secondary" onclick="openTransferFromDashboard(' + attrStr(t._id) + ')">View</button></td></tr>';
@@ -1576,7 +1713,7 @@ function renderAdminUsers(){
   html += '</div>';
   html += '<div class="table-wrapper"><table class="data-table"><thead><tr><th>Username</th><th>Role</th><th>Branch</th><th>Actions</th></tr></thead><tbody>';
   state.users.forEach(function(u){
-    html += '<tr><td>' + esc(u.username) + '</td><td>' + esc(u.role) + '</td><td>' + esc(u.branch||'-') + '</td>';
+    html += '<tr onclick="handleRowClick(event, this)"><td>' + esc(u.username) + '</td><td>' + esc(u.role) + '</td><td>' + esc(u.branch||'-') + '</td>';
     html += '<td>';
     if (u.username && u.username.toLowerCase() === 'admin') {
       html += '<em style="color:#c0392b;font-weight:bold;">(Protected)</em>';
@@ -1646,7 +1783,7 @@ function renderAdminBranches(){
   html += '<div class="table-wrapper"><table class="data-table"><thead><tr><th>Branch</th><th>Users</th><th>Actions</th></tr></thead><tbody>';
   state.branches.forEach(function(b){
     var uc = state.users.filter(function(u){ return u.branch === b; }).length;
-    html += '<tr><td>' + esc(b) + '</td><td>' + uc + '</td>';
+    html += '<tr onclick="handleRowClick(event, this)"><td>' + esc(b) + '</td><td>' + uc + '</td>';
     html += '<td><button class="btn btn-small btn-danger" onclick="adminDeleteBranch(' + attrStr(b) + ')">🗑️</button></td></tr>';
   });
   html += '</tbody></table></div></div>';
@@ -1709,7 +1846,7 @@ function renderCatalogTable(){
   limited.forEach(function(row){
     var key = row._id;
     var checked = catalogSelected.has(key) ? 'checked' : '';
-    html += '<tr><td><input type="checkbox" data-cat-key="' + esc(key) + '" ' + checked + '></td>';
+    html += '<tr onclick="handleRowClick(event, this)"><td><input type="checkbox" data-cat-key="' + esc(key) + '" ' + checked + '></td>';
     state.columns.forEach(function(c){ html += '<td>' + esc(row[c] == null ? '' : row[c]) + '</td>'; });
     html += '</tr>';
   });
@@ -1879,7 +2016,8 @@ var EXPORTS = [
   'setDashBranch','setDashStatus','setDashSearch','setDashDateFrom','setDashDateTo','clearDashDate','dashSortBy',
   'toggleDashExtra','setAdminTab','linkNewUser','deleteUserProfile','adminAddBranch','adminDeleteBranch',
   'renderCatalogTable','adminDeleteAllCatalog','adminDeleteSelectedCatalog','adminUploadExcel',
-  'adminShowAddItem','adminAddItemSubmit','deleteAllTransfers','importMaterialFile'
+  'adminShowAddItem','adminAddItemSubmit','deleteAllTransfers','importMaterialFile',
+  'handleRowClick', 'uncancelTransfer', 'handleFiles', 'removeAttachment' // الميزات الجديدة
 ];
 EXPORTS.forEach(function(name){
   if (typeof window[name] === 'undefined' && typeof eval(name) === 'function'){
@@ -1917,6 +2055,7 @@ window.backToTransfers = backToTransfers;
 window.openTransferFromDashboard = openTransferFromDashboard;
 window.confirmReceipt = confirmReceipt;
 window.cancelTransfer = cancelTransfer;
+window.uncancelTransfer = uncancelTransfer;
 window.deleteTransfer = deleteTransfer;
 window.exportTransferExcel = exportTransferExcel;
 window.exportTransferPDF = exportTransferPDF;
@@ -1942,6 +2081,9 @@ window.adminShowAddItem = adminShowAddItem;
 window.adminAddItemSubmit = adminAddItemSubmit;
 window.deleteAllTransfers = deleteAllTransfers;
 window.importMaterialFile = importMaterialFile;
+window.handleRowClick = handleRowClick;
+window.handleFiles = handleFiles;
+window.removeAttachment = removeAttachment;
 </script>
 </body>
 </html>
