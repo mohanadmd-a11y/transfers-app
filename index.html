@@ -325,7 +325,7 @@ async function doLogout(){
   try { await signOut(auth); } catch(e){ console.error(e); }
 }
 
-// 🌟 إعداد الإشعارات (FCM)
+// 🌟 إعداد الإشعارات (FCM) - مع الإصلاح الجديد
 async function setupFCM() {
   try {
     if (!('serviceWorker' in navigator)) {
@@ -333,10 +333,10 @@ async function setupFCM() {
       return;
     }
 
-    // 1. تسجيل Service Worker (استخدم المسار المطلق الخاص بمشروعك)
+    // 1. تسجيل Service Worker (المسار المطلق الخاص بمشروعك)
     await navigator.serviceWorker.register('/transfers-app/firebase-messaging-sw.js');
 
-    // 2. الانتظار حتى يصبح Service Worker نشطاً وجاهزاً
+    // 2. الانتظار حتى يصبح Service Worker نشطاً وجاهزاً (هذا هو الإصلاح)
     const registration = await navigator.serviceWorker.ready;
 
     // 3. تهيئة المراسلة
@@ -353,17 +353,17 @@ async function setupFCM() {
         await updateDoc(doc(db, 'users', state.user.uid), { fcmToken: currentToken });
         console.log("✅ FCM Token saved successfully.");
       } else {
-        console.log("⚠️ No registration token available. Request permission to generate one.");
+        console.log("⚠️ No registration token available.");
       }
     } else {
       console.log("⚠️ Notification permission denied.");
     }
 
-    // استقبال الإشعارات أثناء فتح الموقع
+    // 4. استقبال الإشعارات أثناء فتح الموقع (Foreground)
     onMessage(messaging, (payload) => {
       console.log('Message received in foreground: ', payload);
       
-      // إظهار إشعار النظام حتى لو كان الموقع مفتوحاً
+      // إظهار إشعار النظام (System Notification) حتى لو كان الموقع مفتوحاً
       if (Notification.permission === 'granted') {
         new Notification(payload.notification.title, {
           body: payload.notification.body,
