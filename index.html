@@ -359,9 +359,19 @@ async function setupFCM() {
       console.log("⚠️ Notification permission denied.");
     }
 
-    // 4. استقبال الإشعارات أثناء فتح الموقع
+    // استقبال الإشعارات أثناء فتح الموقع
     onMessage(messaging, (payload) => {
       console.log('Message received in foreground: ', payload);
+      
+      // إظهار إشعار النظام حتى لو كان الموقع مفتوحاً
+      if (Notification.permission === 'granted') {
+        new Notification(payload.notification.title, {
+          body: payload.notification.body,
+          icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>'
+        });
+      }
+      
+      // إظهار رسالة داخل الموقع أيضاً
       toast(payload.notification.title + ': ' + payload.notification.body, 'info');
     });
 
